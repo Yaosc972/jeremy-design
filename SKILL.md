@@ -24,11 +24,11 @@ description: Jeremy design — 自建 Apple 风格前端设计规范 skill（原
 | 材质、毛玻璃、Liquid Glass（2025 新设计系统） | `materials.md` |
 | 动效、转场、动画时长 | `motion.md` |
 | 弹簧动画参数、手势拖拽、速度传递、动量投影、橡皮筋边界、reduced-motion 等 web 流体动效实现 | `fluid-motion-web.md`（WWDC 演讲转译，与 HIG 文档互补） |
-| **原生概念 → Web 实现的单位/焦点/降级适配（Web 项目必读）** | `web-adaptation.md` |
+| **原生概念 → Web 实现的单位/焦点/降级适配 + 中文断行规范（Web 项目必读）** | `web-adaptation.md`（中文排版见 §4） |
 | 无障碍（对比度、触控目标、VoiceOver） | `accessibility.md` |
 | 反馈、触感、加载、手势 | `interaction-feedback.md` |
 | 按钮/弹窗/菜单/开关/滑杆等控件规范 | `components-controls.md` |
-| App 图标、SF Symbols 图标 | `icons-symbols.md` |
+| App 图标、SF Symbols 图标、Web 图标库落地（Lucide 等） | `icons-symbols.md`（Web 项目重点看 §3） |
 | 各平台（iOS/macOS/visionOS/watchOS/iPadOS）差异 | `platforms.md` |
 | 设计总原则、包容性 | `design-principles.md` |
 | 查任何 HIG 页面的原文 URL（172 页全索引） | `hig-index-all-pages.md` |
@@ -48,6 +48,7 @@ description: Jeremy design — 自建 Apple 风格前端设计规范 skill（原
 - Web 近似写法：`-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif`
 - 避免 Ultralight/Thin/Light 字重（小字难读）；用 Regular/Medium/Semibold/Bold
 - 用字号+字重+颜色做层级，少用多种 typeface；iOS 风格不依赖斜体
+- **中文断行**（Web，`web-adaptation.md` §4）：短 UI 文案 `white-space:nowrap` 不拆词（flex 行内文字最易被压拆）；正文段落 `text-wrap:pretty` 防孤字行；中文内嵌英文专名（App Icon、HIG 原文）与数值+单位（`44&nbsp;pt`）用 nowrap 保护；**禁止对文案用 `word-break:break-all`**
 - 必须支持 Dynamic Type（字号可缩放）：布局要适应字号变化，不能截断关键信息
 
 ### 颜色与材质
@@ -57,7 +58,7 @@ description: Jeremy design — 自建 Apple 风格前端设计规范 skill（原
 
 ### 交互
 - 反馈即时可见；破坏性操作需确认；控件行为与平台惯例一致
-- 图标优先 SF Symbols 语义（与文字自动对齐字重）；Web 可用近似 SVG 库
+- 图标优先 SF Symbols 语义（与文字自动对齐字重）；Web 项目用近似 SVG 库——默认 **Lucide**（ISC、24px 网格、stroke 可调，字重映射与集成方式见 `icons-symbols.md` §3）
 - **流体动效（web）**：弹簧动画用 ζ(damping ratio)+response 参数——WWDC 2018《Designing Fluid Interfaces》的原始建议即**从无过冲（ζ 1.0）起步，带动量的手势（如滑动关闭）才适当加弹跳（ζ ~0.8）**；演讲中出现的具体参数属特定案例（`APPLE-EXAMPLE`），不要上升为跨组件统一默认值。反馈在 pointer-down 即时发生；手势结束把释放速度传给弹簧（Web 上必须用物理弹簧并维护速度，勿用 duration 型弹簧）；甩动落点用动量投影（decelerationRate 0.998，`APPLE-EXAMPLE` 源自 UIScrollView）；边界用橡皮筋（c=0.55）不硬停；动画可随时中断并从当前值续走。细节与代码见 `fluid-motion-web.md`
 
 ## 使用规则
@@ -80,3 +81,4 @@ description: Jeremy design — 自建 Apple 风格前端设计规范 skill（原
 - ❌ 布局不响应字号缩放，大字号下文字被截断
 - ❌ 按设备型号/横竖屏决定布局（应按 size class / 可用空间决定）
 - ❌ 把演讲示例参数升格为通用规范（如"0.4 用于大距离移动"）、把 Apple 阻尼比 ζ 直接写进 Motion 的 `damping` 参数（两者不是同一个量）、宣称"大字必负字距"（SF Pro 24pt 起转正，方向取决于字体家族）
+- ❌ 用 emoji 当 UI 图标（彩色表情符号无法对齐文字字重、无法单色适配明暗外观与 Reduce Transparency，跨平台渲染不一致）→ ✅ UI 图标一律用矢量符号（SF Symbols 或近似 SVG），与相邻文本同色同字重；emoji 只可作内容、不作界面图标。本条为本 skill 工程守则（`PROJECT-DEFAULT`）：HIG 无"禁用 emoji"明文，依据 icons-symbols.md 的单色渲染与字重对齐原则推导。Web 项目取图标的默认库与集成方式见 `icons-symbols.md` §3（默认 Lucide）

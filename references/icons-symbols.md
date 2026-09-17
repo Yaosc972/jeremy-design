@@ -183,6 +183,64 @@ SF Symbols 没有的符号可以自制：先导出相近符号的 template，再
 
 ---
 
+## 三、Web 项目图标落地（Web 图标库）
+
+> **性质**：`WEB-ADAPTATION` + `PROJECT-DEFAULT`。SF Symbols 是 Apple 平台资源（字体与符号受 Apple 许可限制，**不可用于 Web 分发**），Web 项目需用观感近似的开源图标库。本节是本 skill 选定的落地工程约定，**不声称与 SF Symbols 等效**。
+
+### 3.1 选型（本 skill 默认）
+
+| 库 | 许可 | 规模 / 风格 | 定位 |
+|---|---|---|---|
+| **Lucide**（lucide.dev） | ISC，商用免费 | 1600+ 图标；24×24 网格、纯 outline 线性风格、默认 `stroke-width: 2`，颜色/线宽/尺寸均可调 | **Web 图标主选**：线性观感最接近 SF Symbols outline；有 npm（`lucide` / `lucide-static` / 各框架包） |
+| useAnimations（useanimations.com） | 代码 MIT；站点声明**禁止 AI 训练其内容** | 90+ 动画图标（Lottie JSON），32px 网格，Feather 同源线性风 | **仅动画图标场景**：加载、成功、空状态等状态反馈。本 skill 只作选型指向、不收录其素材 |
+| Rune Icons（runeicons.com） | Apache 2.0 | 900+ 图标；五种风格（outline / duotone / fill / pixel / glass），24px 网格 | 备选：需要 duotone / fill 变体时（Lucide 只有 outline）。较新站点，交付前自行验证 |
+
+选型规则：默认 Lucide；仅当需要"动画化状态图标"时看 useAnimations；仅当需要填充/双色调变体时看 Rune。**同一界面只用一套**——三者笔画风格、网格、圆角语言不同，混用即失去体系一致性。
+
+### 3.2 SF 字重 → stroke-width 映射（`PROJECT-DEFAULT`）
+
+SF Symbols 靠字重匹配实现"符号与相邻文本字重一致"（§2.4）；Web 近似做法是让 SVG 的 `stroke-width` 跟随文本字重。下表为本 skill 的工程映射（按 24px 显示尺寸；Lucide 24 网格、默认 2 对应 medium 档）：
+
+| SF 字重对应 | stroke-width（24px 显示尺寸） |
+|---|---|
+| ultralight | 1.0 |
+| thin | 1.25 |
+| light | 1.5 |
+| regular | 1.75 |
+| medium | 2.0（Lucide 默认） |
+| semibold | 2.25 |
+| bold | 2.5 |
+| heavy | 2.75 |
+| black | 3.0 |
+
+- 显示尺寸非 24px 时线宽随缩放等比变化；要保持视觉线宽恒定，按 `目标线宽 × 24 ÷ 显示像素` 换算，或对该元素用 `vector-effect: non-scaling-stroke`（此时 `stroke-width` 直接以 CSS px 生效）。
+- 常规正文旁用 regular–medium 档；与 semibold 标题并列时升到 semibold；细档（ultralight–light）只用于大尺寸装饰，勿用于小图标（同 typography 的细字重原则）。
+- 同屏图标统一取一个档位，不逐图标微调——§2.4 的字重匹配是"与文本一致"，不是"每个图标各自最美"。
+
+### 3.3 集成方式（以 Lucide 为例）
+
+1. **内联 SVG（单文件 / 需精细控制）**：从 lucide.dev 图标页复制 SVG 源码直接粘贴。零依赖、属性可改。
+2. **CDN（无构建项目）**：
+   ```html
+   <script src="https://unpkg.com/lucide@latest"></script>
+   <i data-lucide="camera"></i>
+   <script>lucide.createIcons();</script>
+   ```
+   `data-lucide` 元素会被替换为 `<svg>`；动态插入的图标需再次调用 `createIcons()`。具体 API 以 lucide.dev/guide 为准。
+3. **npm（工程化项目）**：`npm i lucide`（vanilla）或 `lucide-react` / `@lucide/vue` 等框架包；只要原始 SVG 文件则用 `lucide-static`（`icons/camera.svg`）。
+
+### 3.4 使用原则
+
+- **颜色随文本**：图标用 `stroke="currentColor"`（Lucide 默认即此），与相邻文本同色、跟随语义色与 Dark Mode；不给图标单独硬编码颜色，警示等语义色除外。
+- **尺寸与热区分离**：正文旁图标视觉 16–20px 即可，但**可点击图标的命中区域仍 ≥44×44 CSS px**（web-adaptation §0），用 padding / 伪元素补足。
+- **变体语义对齐 §2.5**：outline = 默认与工具栏；表达"选中"用强调色或 fill 风格——Lucide 为纯 outline，选中态可用 Rune 的 fill 风格或自绘填充版，勿以描边变粗冒充 fill。
+- **动画克制且可降级**：动画图标只用于传达状态与反馈（加载、成功、连接中），不作装饰；遵循 §2.6 的"明确目的"原则，并响应 `prefers-reduced-motion`（减动效时用静态终态替代）。
+- **无障碍**：纯装饰图标 `aria-hidden="true"`；独立承担语义的图标（无文字标签）必须给 `aria-label` 或可见文本，对齐 §2.7 的 alt text 要求。
+- **商标**：与 §2.7 一致——不得用任何图标库复刻 Apple 产品，也不得用作 App Icon / logo。
+- **不用 emoji 充图标**：UI 图标不得用 emoji（见 SKILL.md 反模式）；emoji 只可作内容、不作界面图标。
+
+---
+
 ## 数值速查
 
 ### App Icons 尺寸与形状
@@ -214,3 +272,13 @@ SF Symbols 没有的符号可以自制：先导出相近符号的 template，再
 | Draw On / Draw Off | SF Symbols 7+ |
 | 动画类型 | Appear、Disappear、Bounce、Scale、Pulse、Variable color、Replace（down-up / up-up / off-up）、Magic Replace、Wiggle、Breathe、Rotate、Draw On / Draw Off |
 | 商标限制 | 不得将 SF Symbols（或混淆性相似图像）用于 App Icon、logo 或其他商标用途；Apple 产品符号可展示不可自定义 |
+
+### Web 图标（`WEB-ADAPTATION` / `PROJECT-DEFAULT`）
+
+| 项 | 数值/规格 |
+|---|---|
+| 默认图标库 | Lucide：ISC 许可、1600+ 图标、24×24 网格、纯 outline、默认 stroke-width 2 |
+| 字重 → 线宽映射 | stroke-width 1.0–3.0 九档、步进 0.25（ultralight→black，medium=2 为 Lucide 默认；见 §3.2） |
+| 图标显示尺寸（正文旁） | 16–20px（可点击图标热区仍 ≥44×44 CSS px） |
+| 动画图标库 | useAnimations（Lottie；仅状态反馈场景；站点禁止 AI 训练其内容，本 skill 不收录素材） |
+| 填充/双色调备选 | Rune Icons（Apache 2.0，900+，五风格） |
