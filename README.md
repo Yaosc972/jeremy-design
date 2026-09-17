@@ -41,6 +41,9 @@ Claude 会在设计类任务中自动调用；也可显式触发：`做个 iOS �
 | `references/materials.md` | 材质、毛玻璃、Liquid Glass |
 | `references/motion.md` | 动效、转场、动画时长 |
 | `references/fluid-motion-web.md` | 弹簧参数、手势拖拽、速度传递、动量投影、橡皮筋、reduced-motion |
+| `references/design-workflow.md` | **任务启动流程**：五问定方向、三模式分流（网站/工作台/移动 Web）、先结构后视觉 |
+| `patterns/workbench.md` | **工作台模式**：行级/页面级操作、筛选、批量选择、列表详情上下文、数字呈现、表格 vs 数据网格 |
+| `patterns/mobile-web.md` | **移动 Web 真实环境**：visual viewport、软键盘避让、返回键、输入类型、hover 触控替代 |
 | `references/web-adaptation.md` | **原生概念 → Web 适配层**：单位策略、语义色 token、safe area、模态语义、降级与验收基线 |
 | `references/accessibility.md` | 对比度、触控目标、VoiceOver |
 | `references/interaction-feedback.md` | 反馈、触感、加载、手势 |
@@ -49,6 +52,9 @@ Claude 会在设计类任务中自动调用；也可显式触发：`做个 iOS �
 | `references/platforms.md` | 各平台差异 |
 | `references/design-principles.md` | 设计总原则、包容性 |
 | `references/hig-index-all-pages.md` | 172 页 HIG 原文 URL 全索引 |
+| `references/web-tokens.md` | **Web 设计系统**：三层 tokens、间距刻度、信息密度决策（44px 的适用边界）、新项目/已有项目策略 |
+| `references/states-and-forms.md` | **状态与业务交互**：数据列表六态（含无权限）、保存生命周期、表单校验与错误关联、模拟边界纪律 |
+| `references/react-implementation.md` | React 实现约定：组件复用、稳定 key、Effect 清理、动画 ref、lucide-react |
 | `references/detail-audit.md` | **交付前细节审查（强制）**：五类检测与 severity、档位验收矩阵、分级验收口径、修复决策树 |
 | `scripts/detail-audit.js` | 注入式细节检测器（页面水平溢出 / 文字裁切 / 行高偏紧 / 文本重叠 / CJK 折行异常；severity 分级 + 已知例外豁免） |
 | `scripts/audit-runner.mjs` | 单档运行器：真实浏览器（CDP）打开 URL 或本地文件，注入状态后输出单行 JSON（支持截图目视复核） |

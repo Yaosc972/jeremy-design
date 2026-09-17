@@ -43,6 +43,9 @@ Claude invokes it automatically for design tasks; you can also trigger it explic
 | `references/materials.md` | Materials, blur, Liquid Glass |
 | `references/motion.md` | Motion, transitions, animation durations |
 | `references/fluid-motion-web.md` | Spring parameters, gesture dragging, velocity handoff, momentum projection, rubber-banding, reduced-motion |
+| `references/design-workflow.md` | **Task kickoff workflow**: five questions, three product modes, structure before visuals |
+| `patterns/workbench.md` | **Workbench pattern**: page- vs row-level actions, filters, bulk selection, list-detail context, number formatting, table vs data grid |
+| `patterns/mobile-web.md` | **Mobile web real environment**: visual viewport, soft keyboard, back button, input types, hover alternatives |
 | `references/web-adaptation.md` | **Native concepts → Web adaptation layer**: unit strategy, semantic color tokens, safe area, modal semantics, degradation and acceptance baselines |
 | `references/accessibility.md` | Contrast, touch targets, VoiceOver |
 | `references/interaction-feedback.md` | Feedback, haptics, loading, gestures |
@@ -51,6 +54,9 @@ Claude invokes it automatically for design tasks; you can also trigger it explic
 | `references/platforms.md` | Per-platform differences |
 | `references/design-principles.md` | Design principles, inclusion |
 | `references/hig-index-all-pages.md` | Full URL index of all 172 HIG pages |
+| `references/web-tokens.md` | **Web design system**: three-layer tokens, spacing scale, information density decisions (boundaries of 44px), new vs existing projects |
+| `references/states-and-forms.md` | **States & business interactions**: six list states (incl. no-permission), save lifecycle, form validation and error association, simulation-boundary discipline |
+| `references/react-implementation.md` | React conventions: component reuse, stable keys, Effect cleanup, animation refs, lucide-react |
 | `references/detail-audit.md` | **Pre-delivery detail audit (mandatory)**: five detection classes with severity, breakpoint acceptance matrix, graded acceptance, fix decision tree |
 | `scripts/detail-audit.js` | Injectable detail detector (page overflow / text clipping / tight line-height / text overlap / CJK line-breaking anomalies; severity grading with known-exception exemptions) |
 | `scripts/audit-runner.mjs` | Single-state runner: real browser (CDP) opens a URL or local file, injects state, emits one-line JSON (screenshot support for visual review) |
