@@ -7,11 +7,25 @@
 // 用法（一般由 audit-matrix.sh 调用）：
 //   node audit-runner.mjs --target <url|file> --audit <detail-audit.js> \
 //     [--viewport 1440x900] [--rm reduce|no-preference] [--state <state.js>]... \
-//     [--timeout 30000] [--shot <out.png>]
+//     [--ready <js-expr>] [--assert <js-expr>] \
+//     [--timeout 30000] [--deadline 120000] [--shot <out.png>]
+//
+// 前置条件链（任一不满足即执行失败，绝不继续得出"通过"）：
+//   导航无 errorText → load 在 --timeout 内触发 → 实际页面非浏览器错误页 →
+//   --ready 就绪表达式为真 → 状态脚本无异常/异步失败 → --assert 档位断言为真 →
+//   稳定等待 → 几何检测。
+//
+// --timeout  ms   导航 load 等待上限，超时=执行失败（默认 30000；不是"等到就继续"）。
+// --deadline ms   单档总时限，超时=失败并输出超时所在阶段（默认 max(4×timeout, 60000)）。
+// --ready  <expr> 应用就绪条件，如 "!!document.querySelector('#app .toolbar')"。
+// --assert <expr> 状态生效断言，如 200% 档 "parseFloat(getComputedStyle(document.body).fontSize)>=32"。
+//                 状态文件必须断言目标字号/主题确实生效，执行过 ≠ 覆盖了该档位。
 //
 // 输出：stdout 一行 JSON —
-//   { ok, blank, errors[], result{overflowX,clip,tight,overlap,wrapped,counts}, target, viewport, rm }
-//   ok=false 表示页面级失败（导航失败/超时/AUDIT 未定义）；result 为 null 时检查不成立。
+//   { ok, blank, errors[], result{overflowX,clip,tight,overlap,wrapped,skipped,counts},
+//     target, viewport, rm, stage?, fail? }
+//   ok=false 附 fail=失败阶段与原因；result 为 null 时检查不成立。
+//   浏览器错误页（chrome-error:// 或 neterror 结构）带文字也会被身份检查拦下。
 import { spawn } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
@@ -28,10 +42,14 @@ const auditPath = opt('audit');
 if (!target || !auditPath) { console.error('缺少 --target 或 --audit'); process.exit(2); }
 const viewport = opt('viewport', '1440x900').split('x').map(Number);
 const rm = opt('rm', null);                 // null=不覆盖（浏览器默认）；reduce / no-preference
+const readyExpr = opt('ready', null);       // 导航后的应用就绪条件（可选）
+const assertExpr = opt('assert', null);     // 状态生效断言（可选）
 const states = optAll('state').map(f => readFileSync(f, 'utf8'));
 const timeoutMs = Number(opt('timeout', 30000));
 const chromePath = opt('chrome', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
 const auditSrc = readFileSync(auditPath, 'utf8');
+
+let stage = 'init';                         // 失败时报告的阶段
 
 const url = /^https?:\/\//.test(target) ? target : pathToFileURL(resolve(target)).href;
 const profileDir = mkdtempSync(tmpdir() + '/jd-cdp-');
@@ -92,15 +110,71 @@ async function main() {
   if (rm) await send('Emulation.setEmulatedMedia',
     { features: [{ name: 'prefers-reduced-transparency', value: rm }] }, sessionId);
 
-  await send('Page.navigate', { url }, sessionId);
-  await Promise.race([waitEvent('Page.loadEventFired', sessionId), new Promise(r => setTimeout(r, timeoutMs))]);
+  const collectErrors = () => {
+    const errors = [];
+    for (const e of events) {
+      if (e.method === 'Runtime.exceptionThrown') {
+        const d = e.params.exceptionDetails;
+        errors.push('JS异常: ' + (d.exception?.description || d.text || '').split('\n')[0].slice(0, 160));
+      } else if (e.method === 'Runtime.consoleAPICalled' && e.params.type === 'error') {
+        errors.push('console.error: ' + e.params.args.map(a => a.value ?? a.description ?? '').join(' ').slice(0, 160));
+      } else if (e.method === 'Log.entryAdded' && e.params.entry.level === 'error') {
+        errors.push('页面错误: ' + (e.params.entry.text || '').slice(0, 160));
+      }
+    }
+    return errors;
+  };
+  const failPayload = (msg) => ({ ok: false, blank: null, errors: collectErrors(), result: null, target: url, viewport: opt('viewport', '1440x900'), rm, stage, fail: msg });
+  const evalBool = async (expr) => {
+    const r = await send('Runtime.evaluate', {
+      expression: `(()=>{try{return !!(${expr});}catch(e){return false;}})()`, returnByValue: true,
+    }, sessionId);
+    return r.result?.result?.value === true;
+  };
 
-  // 状态 JS（切字号/主题等），合并执行
+  const deadlineMs = Number(opt('deadline', 0)) || Math.max(timeoutMs * 4, 60000);
+  setTimeout(() => finish(2, failPayload(`总超时 ${deadlineMs}ms`)), deadlineMs);
+
+  // 前置链 1：导航。errorText 非空即失败——绝不把错误页当应用验收。
+  stage = 'navigate';
+  events.length = 0;                                       // 丢弃 about:blank 残留事件
+  const nav = await send('Page.navigate', { url }, sessionId);
+  if (nav.result?.errorText) return finish(2, failPayload('导航失败: ' + nav.result.errorText));
+
+  // 前置链 2：load 必须触发；等到超时=失败，不继续往下走
+  stage = 'load';
+  const loaded = await Promise.race([
+    waitEvent('Page.loadEventFired', sessionId).then(() => true),
+    new Promise(r => setTimeout(() => r(false), timeoutMs)),
+  ]);
+  if (!loaded) return finish(2, failPayload(`页面加载超时（${timeoutMs}ms 内未触发 load）`));
+
+  // 前置链 3：实际身份核验——浏览器错误页（chrome-error:// / neterror 结构）有文字也会被拦下
+  stage = 'identity';
+  const ident = await send('Runtime.evaluate', {
+    expression: `(()=>{try{return {href:location.href,err:location.href.indexOf('chrome-error:')===0||!!document.getElementById('main-frame-error')};}catch(e){return {href:'',err:true};}})()`,
+    returnByValue: true,
+  }, sessionId);
+  const idv = ident.result?.result?.value || {};
+  if (idv.err) return finish(2, failPayload('实际加载的是浏览器错误页: ' + (idv.href || '?')));
+
+  // 前置链 4：应用就绪条件（可配置）。"非空白"只是最低检查，证明不了加载的是用户的应用。
+  if (readyExpr) {
+    stage = 'ready';
+    if (!await evalBool(readyExpr)) return finish(2, failPayload('应用就绪条件未满足: ' + readyExpr));
+  }
+
+  // 前置链 5：状态 JS（切字号/主题等）。检查返回值异常 + awaitPromise 等异步完成——
+  // Runtime.exceptionThrown 事件可能为空，返回值里的 exceptionDetails 才是可靠信号。
+  stage = 'state';
   for (const s of states) {
-    await send('Runtime.evaluate', { expression: s, awaitPromise: false }, sessionId);
+    const r = await send('Runtime.evaluate', { expression: s, awaitPromise: true, returnByValue: true }, sessionId);
+    const ex = r.result?.exceptionDetails;
+    if (ex) return finish(2, failPayload('状态脚本执行失败: ' + (ex.exception?.description || ex.text || '').split('\n')[0].slice(0, 160)));
   }
 
   // 等页面稳定：字体就绪 → 双 rAF → 有限时长动画收尾（无限动画跳过），总超时兜底
+  stage = 'stable';
   const stable = await send('Runtime.evaluate', {
     expression: `(async()=>{
       try{await document.fonts.ready;}catch(e){}
@@ -113,17 +187,13 @@ async function main() {
     awaitPromise: true, returnByValue: true,
   }, sessionId);
 
-  const errors = [];
-  for (const e of events) {
-    if (e.method === 'Runtime.exceptionThrown') {
-      const d = e.params.exceptionDetails;
-      errors.push('JS异常: ' + (d.exception?.description || d.text || '').split('\n')[0].slice(0, 160));
-    } else if (e.method === 'Runtime.consoleAPICalled' && e.params.type === 'error') {
-      errors.push('console.error: ' + e.params.args.map(a => a.value ?? a.description ?? '').join(' ').slice(0, 160));
-    } else if (e.method === 'Log.entryAdded' && e.params.entry.level === 'error') {
-      errors.push('页面错误: ' + (e.params.entry.text || '').slice(0, 160));
-    }
+  // 前置链 6：档位断言——状态确实生效才算覆盖了这个档位
+  if (assertExpr) {
+    stage = 'assert';
+    if (!await evalBool(assertExpr)) return finish(2, failPayload('状态断言未满足: ' + assertExpr));
   }
+
+  const errors = collectErrors();
 
   // 截图（目视复核用）：当前视口；--shot-at <y> 先滚动到指定位置
   const shotPath = opt('shot', null);
@@ -150,4 +220,4 @@ async function main() {
   finish(0, { ok: true, blank: v.blank, errors, result: v.r, target: url, viewport: opt('viewport', '1440x900'), rm });
 }
 
-main().catch(e => finish(2, { ok: false, blank: null, errors: [String(e.message || e)], result: null, target: url, viewport: opt('viewport', '1440x900'), rm, fail: '运行器错误' }));
+main().catch(e => finish(2, { ok: false, blank: null, errors: [String(e.message || e)], result: null, target: url, viewport: opt('viewport', '1440x900'), rm, stage, fail: `运行器错误（阶段: ${stage}）` }));

@@ -12,7 +12,7 @@
 
 - UI 变化由 state/props 驱动；**不在事件处理器里直接改 DOM 样式**（`el.style.x = …`）来表达状态。
 - 派生状态能算就不存（`const visible = items.filter(...)`，不要再存一份 `visibleItems`）。
-- 每帧变化的值（动画中间值、拖拽位置）**放进 ref**，不要进 state——state 每帧更新会触发整树 re-render。
+- 每帧变化的值（动画中间值、拖拽位置）**放进 ref**，不要进 state——状态更新触发的是相关组件及其渲染路径（不等于每次重渲染整个应用，但每帧 setState 的开销仍可观）；高频动画值优先用 ref 或动画库专用值（如 motion 的 MotionValue）。
 
 ## 3. 动画与手势的生命周期
 
@@ -38,7 +38,7 @@
 
 ## 5. 弹层与焦点
 
-- 用成熟的 headless 弹层库（如 Radix UI 系）实现对话框/菜单/抽屉，**不要手写焦点圈定**——`web-adaptation.md §1` 的模态语义要求（焦点移入/圈定/Esc/关闭还原/背景 inert）都由它保证完整。
+- 用成熟的 headless 弹层库（如 Radix UI 系）实现对话框/菜单/抽屉，**不要手写焦点圈定**——`web-adaptation.md §1` 的模态语义要求（焦点移入/圈定/Esc/关闭还原/背景 inert）它们提供可靠基础，但**库 ≠ 配置正确**：可访问名称与内容结构（如 Radix Dialog 的 Title/Description/Trigger 关联）、关闭流程仍需应用侧接对，交付前按 `detail-audit.md` 键盘档实测。
 - 若必须自写：焦点还原到触发元素、`inert` 背景、Esc 关闭三件事逐一实测。
 - Portal 渲染的浮层注意**层叠上下文**（父级 `transform`/`overflow` 会裁剪 fixed 元素）。
 

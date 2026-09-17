@@ -8,6 +8,7 @@
   section{padding:14px 0}
   .case{font-size:12px;color:#666;margin-bottom:6px}
   .probe{position:relative;display:block}
+  @keyframes stage-fly{from{transform:translate(280px,60px)}to{transform:translate(292px,60px)}}
 </style>
 </head>
 <body>
@@ -31,22 +32,34 @@
   </div>
 </section>
 
-<!-- 正例（检测器应报出）：此前会漏报的阻断问题 -->
-<section id="c4-clipped">
-  <div class="case">用例4 文字被 height:5px;overflow:hidden 裁掉 —— 期望：clip 报出（blocked）</div>
-  <div style="height:5px;overflow:hidden">重要提示文字内容被容器裁掉了</div>
-</section>
-
+<!-- 反例（检测器不应报出）续：v4 豁免必须带证据 -->
 <section id="c7-accordion">
-  <div class="case">用例7 负例：accordion 收起态（高度 0 + 有展开入口）—— 期望：不在 clip</div>
-  <div style="height:0;overflow:hidden">收起面板里的说明文字不该被当作内容裁切</div>
+  <div class="case">用例7 反例：accordion 收起态（真展开入口 aria-expanded=false + aria-controls）—— 期望：不在 clip（skipped 记 collapsed）</div>
+  <button type="button" aria-expanded="false" aria-controls="c7-panel" style="font:inherit">展开面板</button>
+  <div id="c7-panel" style="height:0;overflow:hidden">收起面板里的说明文字不该被当作内容裁切</div>
 </section>
 
 <section id="c8-anim-stage">
-  <div class="case">用例8 负例：动效舞台（transform 位移元素被舞台框住）—— 期望：不在 clip</div>
+  <div class="case">用例8 反例：运行中的动效（父层 keyframes 带动子元素移出舞台）—— 期望：不在 clip（skipped 记 transform-transient）</div>
   <div style="position:relative;width:300px;height:80px;overflow:hidden;background:#f2f2f7;border-radius:12px">
-    <div id="ball" style="position:absolute;top:50%;left:0;width:48px;height:48px;margin-top:-24px;border-radius:50%;background:#007aff;display:flex;align-items:center;justify-content:center;color:#fff;will-change:transform;transform:translate(280px,60px)">球</div>
+    <div style="position:absolute;top:50%;left:0;margin-top:-24px;animation:stage-fly 2.4s linear infinite alternate">
+      <div style="width:48px;height:48px;border-radius:50%;background:#007aff;display:flex;align-items:center;justify-content:center;color:#fff">球</div>
+    </div>
   </div>
+</section>
+
+<section id="c11-sibling-accordion">
+  <div class="case">用例11 反例：兄弟结构 accordion（button[aria-expanded=false] 紧跟零高度面板，无 aria-controls）—— 期望：不在 clip（skipped 记 collapsed）</div>
+  <div class="acc">
+    <button type="button" aria-expanded="false" style="font:inherit">分组标题</button>
+    <div style="height:0;overflow:hidden">兄弟结构收起面板里的说明文字</div>
+  </div>
+</section>
+
+<!-- 正例（检测器应报出） -->
+<section id="c4-clipped">
+  <div class="case">用例4 文字被 height:5px;overflow:hidden 裁掉 —— 期望：clip 报出（blocked）</div>
+  <div style="height:5px;overflow:hidden">重要提示文字内容被容器裁掉了</div>
 </section>
 
 <section id="c5-real-overlap">
@@ -60,6 +73,18 @@
 <section id="c6-cjk-orphan">
   <div class="case">用例6 正例：CJK 短行孤字 —— 期望：wrapped 报出</div>
   <div style="width:150px">设置页面常规选项与更多</div>
+</section>
+
+<section id="c9-static-moved">
+  <div class="case">用例9 正例：静态 transform 位移（无动画证据）把文字移出裁切容器 —— 期望：clip 报出（blocked，注明无动画证据）</div>
+  <div style="position:relative;width:300px;height:60px;overflow:hidden;background:#f2f2f7">
+    <div style="position:absolute;left:0;top:0;transform:translate(0,200px)">被静态位移移出可视区的说明文字</div>
+  </div>
+</section>
+
+<section id="c10-tiny-no-entry">
+  <div class="case">用例10 正例：3px 容器裁掉文字且无展开入口 —— 期望：clip 报出（blocked）</div>
+  <div style="height:3px;overflow:hidden">没有任何展开入口的矮容器里的重要文字</div>
 </section>
 
 </body>

@@ -22,6 +22,7 @@
 
 ```css
 :root {
+  color-scheme: light dark;            /* 跟随系统；强制态在下方覆盖 */
   /* ---- 基础值 ---- */
   --space-1: 4px;  --space-2: 8px;  --space-3: 12px;
   --space-4: 16px; --space-6: 24px; --space-8: 32px;
@@ -37,11 +38,12 @@
   --color-border: rgba(0, 0, 0, 0.12);
   --color-surface: #ffffff;            /* 卡片/浮层 */
   --color-accent: #0071e3;
+  --color-on-accent: #ffffff;          /* accent 填充上的文字，成对声明 */
   --color-danger: #d70015;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {    /* 跟随系统；强制浅色时排除本分支 */
     /* 只改语义层 */
     --color-bg: #000000;
     --color-bg-subtle: #1c1c1e;
@@ -50,22 +52,33 @@
     --color-border: rgba(255, 255, 255, 0.16);
     --color-surface: #1c1c1e;
     --color-accent: #0a84ff;
+    --color-on-accent: #ffffff;
     --color-danger: #ff453a;
+    color-scheme: dark;
   }
 }
+
+/* 强制深色（用户手选）：暗色语义值与上面 media 块是同一份——
+   工程上从该块生成副本（构建脚本）或提取共享声明，避免手抄两处漂移 */
+:root[data-theme="dark"] {
+  /* …此处放与 media 块相同的暗色语义值 + color-scheme: dark… */
+}
+
+/* 强制浅色：语义值即 :root 默认（亮色），只需把 color-scheme 钉回 light */
+:root[data-theme="light"] { color-scheme: light; }
 
 /* ---- 组件值 ---- */
 .btn { background: var(--color-accent); border-radius: var(--radius-md); padding: var(--space-2) var(--space-4); }
 ```
 
 - 间距刻度坚持一套（如 4 的倍数），组件里出现刻度外的"魔法数字"时，先问是不是刻度该扩充，而不是就地写值。
-- 文字用相对单位（rem），容器尺寸用 token——`web-adaptation.md §0` 的字号缩放要求由此天然满足。
-- 项目有 `[data-theme="dark"]` 手动切换需求时：语义层写两份（attribute + media 两档），写法见 `web-adaptation.md §1` 语义色行。
+- 文字用相对单位（rem），容器尺寸用 token——这是字号缩放能正常工作的**前提**，但不等于自动通过：容器的固定高度、不可断长串、宽表格在放大档仍可能溢出裁切。放大档必须实跑 `detail-audit.md` 验收矩阵，不能用"用了 rem"推断结论。
+- 主题三态（跟随系统 / 强制浅 / 强制深）：跟随系统走 media 分支（选择器带 `:not([data-theme="light"])`，保证强制浅不被系统深色盖掉）；强制深色把暗色语义值另写一份到 `:root[data-theme="dark"]`（与 media 同源，构建生成副本）；强制浅色只需修正 `color-scheme`。`color-scheme` 决定滚动条与原生表单控件的明暗，三态都要钉对。
 
 ## 3. 命名约定
 
 - **按角色命名**：`--color-label-secondary` 好于 `--color-gray-500`——语义名在暗色映射下仍成立，刻度名在暗色下会说谎。
-- 状态成组命名：`--color-danger` / `--color-danger-bg` / `--color-danger-border`（文本/底色/边线三件套）。
+- 状态成组命名：`--color-danger` / `--color-danger-bg` / `--color-danger-border`（文本/底色/边线三件套）。填充色配 `--color-on-*` 显式声明其上文字色（`--color-accent` 配 `--color-on-accent`），不靠"浅色下用白字"的隐式推断——映射变化时对比度关系不随之失效。
 - 组件级 token 只在**确有第二个消费方**时才提取；一次性样式不必 token 化。
 
 ## 4. 信息密度决策：44px 不是所有场景的唯一答案
@@ -89,5 +102,5 @@
 
 ## 6. 与验收的关系
 
-- 暗色档、字号放大档是 `detail-audit.md` 验收矩阵的必跑维度——token 结构正确时这些档位天然成立，破版通常指向绕过 token 的硬编码值（grep `#` 颜色与固定 px 排查）。
+- 暗色档、字号放大档是 `detail-audit.md` 验收矩阵的必跑维度。token 结构正确是这些档位通过的**必要条件而非充分条件**：破版既可能来自绕过 token 的硬编码值（grep `#` 颜色与固定 px 排查），也可能来自对放大不友好的结构（固定高容器、不可断长串、宽表格）——必须实跑，不能从 token 结构推断结论。
 - 对比度按 `accessibility.md` 的 WCAG 口径验收；改语义层映射后必须重新检查亮暗两套的对比度。
