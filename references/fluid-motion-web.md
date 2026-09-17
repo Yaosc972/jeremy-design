@@ -67,13 +67,12 @@ Apple 用两个设计师友好的参数替代 mass/stiffness/damping 三元组�
 - **Damping ratio（阻尼比 ζ）**——控制过冲。`1.0` = 临界阻尼，无弹跳平滑落定；`< 1.0` 会过冲振荡；越低越弹。
 - **Response（响应时间 T）**——多快接近目标（秒）。越低越脆。**这不是"时长"**——弹簧没有固定时长，落定时间由参数涌现。
 
-**默认值（emil 转译口径）**：
-- 多数 UI 从 **damping `1.0`（临界阻尼）** 开始——优雅、不抢戏。
-- 只在**手势本身携带动量**时才加弹跳（damping `~0.8`）。菜单淡入就过冲不对；卡片被甩出去才过冲对。
+**默认值（`APPLE-EXAMPLE`：WWDC 2018《Designing Fluid Interfaces》原始建议）**：
+- 演讲明确建议**从 100% damping（ζ 1.0，无过冲）起步**——优雅、不抢戏。
+- **手势本身携带动量时才加弹跳**（ζ ~0.8；演讲以 Music 滑动关闭为例演示 80% damping）。菜单淡入就过冲不对；卡片被甩出去才过冲对。注意：这是演讲本身的建议，不是第三方现代改写。
+- 演讲中出现的具体参数组合属**特定案例演示**，不应上升为跨组件、跨平台的统一默认值；"0.4 用于大距离移动"等更细的归档值未在可核实的原始材料中精确定位，**按待核实处理**，使用前自行验证。
 
-**WWDC 2018 演讲原始口径（与上不同，双口径并记）**：演讲原文建议 **0.8 为多数 UI 默认**（小弹跳）、**0.4 用于大距离移动**（明显弹跳）、response 好默认 **~0.3s**。两套口径差异 = "忠实演讲 vs 现代 web 实践提炼"，按项目选择并保持一致。
-
-**演讲演示的示例组合**（emil 转译标注为 Apple 实际出货值）：
+**演讲演示的示例组合**（均为演讲案例值，非通用规范）：
 
 | 交互 | ζ | T |
 |---|---|---|
@@ -81,13 +80,22 @@ Apple 用两个设计师友好的参数替代 mass/stiffness/damping 三元组�
 | Rotation | 0.8 | 0.4 |
 | Drawer / sheet | 0.8 | 0.3 |
 
-**Web 映射（Motion / Framer Motion）**：`bounce` + `duration` API 与 damping+response 近似映射。安全屋风格：默认 `bounce: 0`（≈ζ1.0），弹跳只留给动量交互。
+**Web 映射（Motion / Framer Motion）——两种弹簧不可混用（`WEB-ADAPTATION`）**：
+
+| 类型 | 配置方式 | 能否纳入手势/既有速度 |
+|---|---|---|
+| 物理弹簧 | `stiffness` / `damping` / `mass` | **能**——拖拽释放、甩动、动画中重抓必须用这个 |
+| 时长型弹簧 | `duration` / `bounce` | **不能**——只用于非手势的入场、强调动画 |
 
 ```js
 import { animate } from 'motion';
-animate(el, { y: 0 }, { type: 'spring', bounce: 0, duration: 0.4 });      // 临界阻尼默认
-animate(el, { y: t }, { type: 'spring', bounce: 0.2, duration: 0.4 });    // 动量交互才加
+// 非手势入场/强调：时长型可以（bounce 0 ≈ 临界阻尼观感）
+animate(el, { y: 0 }, { type: 'spring', bounce: 0, duration: 0.4 });
+// 拖拽释放/甩动：必须物理弹簧并维护当前位置与速度——duration 型会丢掉释放速度，违背 §5
+animate(el, { y: t }, { type: 'spring', stiffness: 300, damping: 30, velocity: gestureVelocity });
 ```
+
+**⚠️ 命名陷阱**：Apple 语境的阻尼比 `ζ`（0–1，1.0=临界阻尼）与 Motion 的参数名 `damping`（物理阻尼系数，与 stiffness/mass 配套）**不是同一个量**——不能把 ζ=0.8 直接写成 `damping: 0.8`。ζ→物理参数换算（m=1，response T）：ω₀=2π/T，`stiffness=ω₀²`，`damping=2ζω₀`。
 
 ## 5. 速度传递——拖拽与动画之间无接缝
 
@@ -200,7 +208,10 @@ Reduced motion ≠ 无反馈——是**更温和的非前庭等效**。响应三
 
 ```css
 @media (prefers-reduced-motion: reduce) {
-  .sheet { transition: opacity 200ms ease; transform: none !important; }
+  /* ⚠️ 只改过渡方式，不要改变组件显隐状态：若 sheet 用 transform 表示关闭位
+     （如 translateY(100%) 藏于屏下），transform:none!important 会让它常驻可见。
+     关闭态应保留定位 transform，仅去掉过渡动画；上线前必须实测显隐正确。 */
+  .sheet { transition: opacity 200ms ease; }
 }
 @media (prefers-reduced-transparency: reduce) {
   .toolbar { background: white; backdrop-filter: none; }
@@ -211,7 +222,7 @@ Reduced motion ≠ 无反馈——是**更温和的非前庭等效**。响应三
 
 Apple 让字体随尺寸变形状；web 同理。（*The Details of UI Typography*, WWDC 2020）
 
-- **字距（tracking）是尺寸特定的——绝不一个值打天下**。大展示文字要**负字距**（越大越挤），小文字要轻微**正字距**助读。固定 letter-spacing 一定在某个尺寸是错的。收紧大标题，正文接近 0（emil 转译示例值 `-0.02em`）。
+- **字距（tracking）是尺寸特定的——绝不一个值打天下**。但**方向取决于字体家族，不存在"大字必负、小字必正"的通用规则**：SF Pro 在 13–23pt 为负、24pt 起转正、80pt+ 归零（完整表见 `typography.md`）；New York 才是 15pt 归零后持续转负。原生运行中的系统字体**自动**按磅值调整 tracking；浏览器 `letter-spacing` 只在需要精确复刻 mockup 时手动设置（`HIG` 区分了这两种场景）。`-0.02em` 之类取值只能作为**项目级视觉调整**（`PROJECT-DEFAULT`），并实测正文、标题及中文等内容。
 - **行高与尺寸反向**：大标题紧，正文松。升格脚本（高升部/降部）加大行高；信息密集 UI 收紧行高。
 - **层级 = 字重+字号+行高成套设计**，不是只调字号。用字重做强调——增加存在感而不占空间。
 - **尊重用户字号设置**（Dynamic Type）：布局随文字缩放——间距用 rem/em，不用固定 px，字号放大不破版。
@@ -222,7 +233,7 @@ Apple 让字体随尺寸变形状；web 同理。（*The Details of UI Typograph
 .display {
   font-size: clamp(2rem, 5vw, 4rem);
   line-height: 1.05;        /* 大字紧行高 */
-  letter-spacing: -0.02em;  /* 大字负字距 */
+  letter-spacing: -0.02em;  /* 项目级视觉调整示例（PROJECT-DEFAULT），非通用规范；SF Pro 大字实际可正可零 */
   font-optical-sizing: auto;
 }
 ```
@@ -257,8 +268,9 @@ Apple 让字体随尺寸变形状；web 同理。（*The Details of UI Typograph
 
 | 需求 | 技术 | 具体值 |
 |---|---|---|
-| 默认 UI spring | 临界阻尼无过冲 | ζ `1.0`，T `0.3–0.4`（WWDC 原始口径：ζ 0.8 默认/0.4 大距离） |
-| 动量/甩动 spring | 欠阻尼小弹跳 | ζ `~0.8`，T `0.3–0.4` |
+| 默认 UI spring | 临界阻尼无过冲 | ζ `1.0`，T `0.3–0.4`（WWDC18 原始建议即 ζ1.0 起步） |
+| 动量/甩动 spring | 欠阻尼小弹跳 | ζ `~0.8`，T `0.3–0.4`（演讲以 Music 滑动关闭为例） |
+| Web 弹簧选型 | 手势链路用物理弹簧 | Motion：`stiffness/damping/mass`(+`velocity`)；`duration/bounce` 型**不带速度**，仅限非手势动画；**ζ≠`damping` 参数** |
 | 手势→spring 速度 | 传递释放速度 | `v/(target−current)` 若需相对速度 |
 | 甩动落点 | 动量投影 | `current + (v/1000)·d/(1−d)`，`d ≈ 0.998`（normal）/ 0.99（fast） |
 | 干净中断 | 从 presentation 值出发 | 读在屏 transform |
@@ -269,7 +281,7 @@ Apple 让字体随尺寸变形状；web 同理。（*The Details of UI Typograph
 | 反馈 | pointer-down 即时、全程连续 | 不只在结束时 |
 | 边界 | 橡皮筋不硬停 | `(x·d·c)/(d+c·\|x\|)`，c=0.55 |
 | 半透明 chrome | `backdrop-filter` 层 | 内容从下滚过 |
-| 字距 | 尺寸特定 | 大字 `-0.02em`，正文 ≈0 |
+| 字距 | 尺寸+字体特定 | 无通用"大字必负"规则；SF Pro 13–23pt 负、24pt 起转正；覆盖时标 `PROJECT-DEFAULT` 并实测 |
 | Reduced motion | 交叉淡化替代滑移/弹簧 | `@media (prefers-reduced-motion)` |
 
 ---
