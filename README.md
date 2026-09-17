@@ -1,5 +1,7 @@
 # Jeremy Design
 
+[English](README.en.md) | 简体中文
+
 Apple 人机界面指南（HIG）前端设计规范速查 —— 一个 Claude Code / Claude Agent skill。
 
 把 Apple 官方 HIG 的核心规范带给前端与界面设计任务。**HIG 部分的规则和数值忠实摘自 [developer.apple.com/design](https://developer.apple.com/design/human-interface-guidelines/) 官方原文**（2026-09 快照），每条可溯源——exact values, not vibes。在此之上是**单独标注的 Web 适配建议**：官方指南（`HIG`）、Apple 演讲/示例案例（`APPLE-EXAMPLE`）、浏览器工程转换（`WEB-ADAPTATION`）与本项目默认值（`PROJECT-DEFAULT`）四类来源明确区分，不混用。收录范围是**核心主题摘要**，非 172 页逐条摘录（172 页 URL 索引在 `references/hig-index-all-pages.md`）。
