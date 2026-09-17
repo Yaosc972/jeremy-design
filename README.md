@@ -47,6 +47,9 @@ Claude 会在设计类任务中自动调用；也可显式触发：`做个 iOS �
 | `references/platforms.md` | 各平台差异 |
 | `references/design-principles.md` | 设计总原则、包容性 |
 | `references/hig-index-all-pages.md` | 172 页 HIG 原文 URL 全索引 |
+| `references/detail-audit.md` | **交付前细节审查（强制）**：四类检测定义、档位验收矩阵、修复决策树 |
+| `scripts/detail-audit.js` | 注入式细节检测器（水平溢出 / 字形挤压 / 文本重叠 / CJK 拆词折行） |
+| `scripts/audit-matrix.sh` | 档位矩阵运行器：多状态自动跑检测并汇总（headless） |
 
 ## 一个例子：触控目标
 

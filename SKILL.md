@@ -32,6 +32,8 @@ description: Jeremy design — 自建 Apple 风格前端设计规范 skill（原
 | 各平台（iOS/macOS/visionOS/watchOS/iPadOS）差异 | `platforms.md` |
 | 设计总原则、包容性 | `design-principles.md` |
 | 查任何 HIG 页面的原文 URL（172 页全索引） | `hig-index-all-pages.md` |
+| 中文排版、断行、Web 适配 | `web-adaptation.md`（§4 是断行对策） |
+| **交付前细节审查（强制）**：折行/重叠/溢出/挤字四类检测 + 档位矩阵 | `detail-audit.md` + `scripts/audit-matrix.sh` |
 
 ## 核心规范速查（数值均对照原文验证，来源见标记）
 
@@ -63,7 +65,7 @@ description: Jeremy design — 自建 Apple 风格前端设计规范 skill（原
 
 ## 使用规则
 
-0. **执行流程**（每次任务走一遍）：确认运行环境与目标平台（原生 or Web、何平台、何输入方式）→ 按路由表读任务相关 reference → 区分来源标记（`HIG` / `APPLE-EXAMPLE` / `WEB-ADAPTATION` / `PROJECT-DEFAULT`），不得混用原生 point 与 CSS 单位 → 实现正常、交互、异常三态 → 验证无障碍（对比度、字号缩放、reduced-motion、键盘/读屏）、布局与动效（动画中断不跳变）→ 向用户报告**已验证项与未验证项**；未经实际验证，不声称实现"已符合 HIG"
+0. **执行流程**（每次任务走一遍）：确认运行环境与目标平台（原生 or Web、何平台、何输入方式）→ 按路由表读任务相关 reference → 区分来源标记（`HIG` / `APPLE-EXAMPLE` / `WEB-ADAPTATION` / `PROJECT-DEFAULT`），不得混用原生 point 与 CSS 单位 → 实现正常、交互、异常三态 → 验证无障碍（对比度、字号缩放、reduced-motion、键盘/读屏）、布局与动效（动画中断不跳变）→ **交付前强制细节审查矩阵**：`scripts/audit-matrix.sh` 跑字号 100%/150%/200% × 明暗外观，四类检测（水平溢出/字形挤压/文本重叠/CJK 拆词折行）全为 0 才算过；每轮修复后复跑全部档位，改过布局的元素截图目视复核。注意"特定档位窗口"型事故真实存在（只在 180% 拆、170%/200% 正常），单档位通过不构成交付依据 → 向用户报告**已验证项与未验证项**；未经实际验证，不声称实现"已符合 HIG"
 1. **设计前**：按上表读对应 reference 文件（通常 1-2 个），不要跳过直接凭印象写样式；Web 项目必读 `web-adaptation.md`
 2. **数值必须来自 reference**：字号、尺寸、对比度阈值以文件内速查表为准；文件里没有的数值不要编造，标注"HIG 未规定"并给出 `PROJECT-DEFAULT` 默认值
 3. **平台一致性**：只做一种平台风格时按 `platforms.md` 对应节；混搭风格先声明目标平台
@@ -82,3 +84,5 @@ description: Jeremy design — 自建 Apple 风格前端设计规范 skill（原
 - ❌ 按设备型号/横竖屏决定布局（应按 size class / 可用空间决定）
 - ❌ 把演讲示例参数升格为通用规范（如"0.4 用于大距离移动"）、把 Apple 阻尼比 ζ 直接写进 Motion 的 `damping` 参数（两者不是同一个量）、宣称"大字必负字距"（SF Pro 24pt 起转正，方向取决于字体家族）
 - ❌ 用 emoji 当 UI 图标（彩色表情符号无法对齐文字字重、无法单色适配明暗外观与 Reduce Transparency，跨平台渲染不一致）→ ✅ UI 图标一律用矢量符号（SF Symbols 或近似 SVG），与相邻文本同色同字重；emoji 只可作内容、不作界面图标。本条为本 skill 工程守则（`PROJECT-DEFAULT`）：HIG 无"禁用 emoji"明文，依据 icons-symbols.md 的单色渲染与字重对齐原则推导。Web 项目取图标的默认库与集成方式见 `icons-symbols.md` §3（默认 Lucide）
+- ❌ 交前端页面前不跑细节审查矩阵就宣称完成：字号档位放大后必有固定 px 尺寸（行高/容器高/最小宽度）挤字、孤字、溢出的事故，且常为"特定档位窗口"型（只在 180% 拆、170%/200% 正常）——单档位肉眼通过不构成交付依据。交付前跑 `scripts/audit-matrix.sh`（100%/150%/200% × 明暗），四类检测全 0 才可声称完成；每轮修复后复跑全部档位
+- ❌ 为通过某档位检测而过度修复、波及正常档位：修法要精确命中出事档位（如加只作用于该档位的类/媒体查询），不要顺手改动其他档位下原本正确的布局（实测过把 1.5x 原本正常的六列色卡改成 3 列的事故）。改过布局的元素截图目视复核观感是否退化
