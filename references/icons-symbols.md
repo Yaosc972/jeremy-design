@@ -85,7 +85,7 @@
 
 ## 二、SF Symbols
 
-SF Symbols 提供数千个一致、高度可配置的符号，与 San Francisco 系统字体无缝集成，在所有字重与字号下自动与文本对齐。凡界面图标可出现之处（toolbars、tab bars、context menus、文本内嵌）都可用 symbol 传达对象或概念。
+SF Symbols 提供与 San Francisco 系统字体无缝集成的完整符号库，在所有字重与字号下自动与文本对齐。凡界面图标可出现之处（toolbars、tab bars、context menus、文本内嵌）都可用 symbol 传达对象或概念。
 
 单个符号及特性的可用性取决于目标系统版本：某一年引入的符号与特性在更早的操作系统中不可用。
 

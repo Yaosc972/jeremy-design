@@ -193,13 +193,25 @@ watchOS 11+，用户可用双击手势滚动列表和 scroll view、在垂直 ta
 
 #### watchOS
 
-Apple Watch Series 4+ 为 Digital Crown 提供触感反馈，滚动内容时更具触感。默认系统提供线性 haptic detents，旋转表冠时可以感觉到；部分系统控件（如 table view）在新条目滚入屏幕时提供 detents。watchOS 定义了一组各自传达特定含义的触感类型（开发参考：WKHapticType）。
+Apple Watch Series 4+ 为 Digital Crown 提供触感反馈，滚动内容时更具触感。默认系统提供线性 haptic detents，旋转表冠时可以感觉到；部分系统控件（如 table view）在新条目滚入屏幕时提供 detents。watchOS 定义了以下触感类型，各自向用户传达特定含义（开发参考：WKHapticType）：
+
+| 触感类型 | 含义 |
+|---|---|
+| Notification | 发生了重要或不寻常的事，需要用户注意；本地或远程通知到达时系统播放同一触感 |
+| Up | 重要数值上升至显著阈值以上 |
+| Down | 重要数值下降至显著阈值以下 |
+| Success | 操作成功完成 |
+| Failure | 操作失败 |
+| Retry | 操作失败但可以重试 |
+| Start | 活动开始（如启动计时器）；通常后接 Stop 触感 |
+| Stop | 活动停止（如停止先前启动的计时器） |
+| Click | 表盘咔哒感，用于按预定义增量或间隔传达进度；过度使用会削弱其作用，咔哒声相互重叠时甚至会混淆 |
 
 ---
 
 ## 四、Loading（加载）
 
-最好的内容加载体验，在用户察觉之前就已完成。若 app 需要加载资源、关卡或其他内容，设计加载行为使其不破坏、不影响用户体验。
+若 app 或游戏需要加载资源、关卡或其他内容，设计加载行为使其不破坏、不影响用户体验。
 
 ### Best practices
 
@@ -229,6 +241,7 @@ iOS/iPadOS/macOS/tvOS/visionOS 无额外考虑。
 | iOS 多指手势 | 三指滑动=撤销/重做；三指捏合=复制/粘贴；四指滑动（仅 iPadOS）=切换 app；Shake=撤销/重做 |
 | 系统 haptic 三类别（iOS） | Notification / Impact / Selection |
 | macOS 触感模式（3 种） | Alignment / Level change / Generic |
+| watchOS 触感类型（9 种） | Notification / Up / Down / Success / Failure / Retry / Start / Stop / Click（语义见上文表格） |
 | visionOS 双手捏合手势 | 拖动分合=缩放；画圈拖动=旋转 |
 | 进度指示器选择规则 | 知道时长用 determinate；不知道用 indeterminate |
 | watchOS 双击（double tap） | 执行视图 primary action；列表/滚动视图中为导航，勿设 primary action |

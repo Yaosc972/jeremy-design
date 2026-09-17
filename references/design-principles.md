@@ -11,11 +11,15 @@
 
 ### 1.1 Purpose（目的）
 
+> 官方 tagline：**Make something meaningful.**（做出有意义的东西。）
+
 - **Create value.**（创造价值。）最好的设计始终指向"什么让产品真正有用"。在开发的每个阶段，都追问你的产品是做什么的、设计是否服务于这个目的。
 - **Keep focused.**（保持聚焦。）顺应人们想要如何使用你的 app，优先排布最重要的功能，并专注于把这些功能做到真正出色。用途清晰的产品更能有效帮助人们达成目标。
 - **Find new ways to solve the problem.**（寻找解决问题的新方式。）调研既有方案，避免重复造轮子；定义你的产品的独特之处，思考设计如何体现它。
 
 ### 1.2 Agency（自主权）
+
+> 官方 tagline：**Let people do things their own way.**（让人们按自己的方式做事。）
 
 - **Stay out of the way.**（不挡路。）人们用你的产品是为了把事情办成。帮助他们最有效的方式往往是直接把他们带到手头的任务或内容。最好的设计在人们需要时才出现，且不引人注目。
 - **Give people the freedom to explore.**（给人们自由探索的空间。）让人们在界面中自由移动、访问功能，而不被锁进特定流程或模式。确需引导流程时，让跳过或退出足够容易，使人们能快速抵达主体验。
@@ -23,16 +27,22 @@
 
 ### 1.3 Responsibility（责任）
 
+> 官方 tagline：**Act in people's best interest.**（为人们的最佳利益行事。）
+
 - **Be fully transparent about what your product does and why.**（对产品做什么、为什么这样做保持完全透明。）从用户的第一次交互起你就有机会建立信任关系。确保 app 的意图从一开始就清晰：请求权限时给出明确理由；收集数据时明确说明收集什么、如何使用。
 - **Keep people's information safe.**（保护人们的信息安全。）人们信任你维护其数据的完整性。只收集产品运行所需的数据，并谨慎处理。预判数据可能被滥用或造成伤害的方式，设置防护以防止滥用与意外后果。
 
 ### 1.4 Familiarity（熟悉感）
+
+> 官方 tagline：**Build on what people know.**（基于人们已知的事物构建。）
 
 - **Use concepts that people know.**（使用人们已知的概念。）人们带着现实世界和其他软件的知识进入每个新体验。两者兼用，让界面感到熟悉而直观。
 - **Keep visuals and interactions consistent.**（保持视觉与交互一致。）一旦确立了某元素的行为或外观，就在整个设计中贯彻它。一致性帮助人们更快学会使用，并让他们确信新的交互会按预期运作。
 - **Provide clear feedback.**（提供清晰反馈。）在使用 app 的过程中给出清晰的信号：显示控件何时可用、内容何时变化，并使用系统模式展示提醒、提供选择。一致的反馈让人们始终知情、始终掌控。
 
 ### 1.5 Flexibility（灵活性）
+
+> 官方 tagline：**Adapt to diverse contexts and needs.**（适应多样的语境与需求。）
 
 - **Design for everyone.**（为所有人设计。）被人们放在心上的产品能赋予人们力量。考虑可能接触到你设计的形形色色的人，把他们的经历、视角与需求的广度纳入考量。从第一天起就把 accessibility 当作优先级。以 Inclusion 的方式设计，触达尽可能广的受众，为所有人创造更好的体验。
 - **Preserve a person's context.**（保留个人上下文。）当设计跨平台、跨配置自适应时，帮助人们感到宾至如归：内容与控件保持一致、可预期的位置，用自然的动画平滑过渡。
@@ -41,17 +51,23 @@
 
 ### 1.6 Simplicity（简洁）
 
+> 官方 tagline：**Be clear and direct.**（清晰而直接。）
+
 - **Include just what's necessary.**（只保留必要之物。）Simplicity 不等于 minimalism。追求聚焦、有用的体验：把重要的东西放在手边，让其余的自然隐去。
 - **Be concise.**（表达精炼。）当你找到最简单的说法时，它往往最通用、最有帮助。为传达概念或标注控件，选择恰好够用的词。
 - **Establish hierarchy.**（建立层级。）当形式与功能一目了然时，人们就知道如何达成目标。优先使用可辨识的控件与一致的结构，帮助人们明白自己在哪里、下一步是什么。
 
 ### 1.7 Craft（工艺）
 
+> 官方 tagline：**Care about every detail.**（在意每一个细节。）
+
 - **Quality sets the tone.**（品质定下基调。）设计中的每个元素都在告诉人们你有多在乎。对每个决策都深思熟虑，追求惊艳的视觉、流畅的动画、精准的措辞与用心的声音。
 - **Experiment and iterate.**（实验并迭代。）尽早做原型，尝试新方法，并愿意丢弃行不通的方案。为每个功能设高标准，打磨，再尝试。在真实场景中测试产品，确保其耐用、可靠、高性能。
 - **Maintain your craft.**（持续维护工艺。）发布不是终点。让界面紧跟最新的平台能力与设计模式，保持高水准。设计是一项持续的承诺。
 
 ### 1.8 Delight（愉悦）
+
+> 官方 tagline：**Make it human.**（让它有人情味。）
 
 - **Identify the emotion you want to inspire.**（明确想唤起的情绪。）不同软件用起来感受不同：健身 app 令人振奋，冥想 app 使人平静，游戏让人兴奋。先知道你想唤起什么感受，再让它塑造设计。
 - **Create defining moments.**（创造定义性时刻。）每次交互都是展示软件立意的机会。从一次简单的按钮点击到一条错误信息，思考每个时刻是否是加入一抹体现设计精神的个性的机会。
