@@ -26,7 +26,7 @@
 ### 1.3 System colors(系统颜色)
 
 - **避免在 App 中硬编码系统色值。** 文档中的色值仅供设计过程参考,实际值可能随版本和各种环境变量波动;应使用 `Color` 等 API 应用系统颜色。
-- **避免重新定义 dynamic system colors 的语义。** 动态系统色按用途(而非外观或色值)语义化定义,自动适配浅色与深色语境。请按原意使用,例如不要把 separator 色当文本色,不要把 secondary text label 色当背景色。
+- **避免重新定义 dynamic system colors 的语义。** 动态系统色按用途(而非外观或色值)语义化定义,自动适配浅色与深色语境。请按原意使用,例如不要把 separator 色当文本色,不要把 secondaryLabel 色当背景色。
 
 ### 1.4 Liquid Glass color(Liquid Glass 的颜色)
 

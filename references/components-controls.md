@@ -28,14 +28,14 @@ Button 触发即时（instantaneous）动作。Button 由三个属性组合传�
 - **visionOS**：三种标准形状——icon-only 用圆形，text-only 用 roundedRectangle 或 capsule，icon+text 用 capsule。按钮以不同视觉样式表达四种交互状态；通常有可见背景并在交互时播放声音。
 - **watchOS**：所有 inline 按钮使用 capsule 形状；与内容并置时获得材质效果以保证可读性。
 
-visionOS 按钮尺寸（pt）。原文为形状 × 尺寸矩阵（抓取版单元格标记缺失，未擅自补全）：
+visionOS 按钮尺寸（pt）与形状可用性矩阵（✓ = 该形状有此尺寸；— = 无）：
 
 | 形状 | Mini (28 pt) | Small (32 pt) | Regular (44 pt) | Large (52 pt) | Extra large (64 pt) |
 |---|---|---|---|---|---|
-| Circular |  |  |  |  |  |
-| Capsule（仅文本） |  |  |  |  |  |
-| Capsule（文本+icon） |  |  |  |  |  |
-| Rounded rectangle |  |  |  |  |  |
+| Circular | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Capsule（仅文本） | — | ✓ | ✓ | ✓ | — |
+| Capsule（文本+icon） | — | — | ✓ | ✓ | — |
+| Rounded rectangle | — | ✓ | ✓ | ✓ | — |
 
 > **Note:** macOS 和 visionOS 中，悬停片刻后系统显示 tooltip（解释按钮用途的简短短语）。visionOS 的按钮**不支持自定义 hover 效果**；按钮含文本时通常无需 tooltip。
 

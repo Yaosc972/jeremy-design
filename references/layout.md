@@ -67,7 +67,18 @@ app 需要处理的常见设备与系统特征：
 
 以下网格布局提供最佳观看体验。未聚焦的行与列之间要留出适当间距，防止某项聚焦时与相邻内容重叠。使用 UIKit collection view flow（UICollectionViewFlowLayout）时，网格列数会根据内容宽度与间距自动确定。
 
-原文提供 Two-column 至 Nine-column 共八种 tvOS 网格布局，以图片形式呈现，本次抓取未包含图示数据（图示见原文或 Apple Design Resources）。
+原文提供 Two-column 至 Nine-column 共八种网格布局，各档数值如下（布局示意图为图片，见原文或 Apple Design Resources）：
+
+| 网格 | 未聚焦内容宽度 | 水平间距 | 最小垂直间距 |
+|---|---|---|---|
+| Two-column | 860 pt | 40 pt | 100 pt |
+| Three-column | 560 pt | 40 pt | 100 pt |
+| Four-column | 410 pt | 40 pt | 100 pt |
+| Five-column | 320 pt | 40 pt | 100 pt |
+| Six-column | 260 pt | 40 pt | 100 pt |
+| Seven-column | 217 pt | 40 pt | 100 pt |
+| Eight-column | 184 pt | 40 pt | 100 pt |
+| Nine-column | 160 pt | 40 pt | 100 pt |
 
 - **为带标题的行留出额外垂直间距。** 行有标题时，在前一未聚焦行底部与标题中心之间、以及标题底部与该行未聚焦项顶部之间都留出足够间距，避免拥挤。
 - **保持间距一致。** 内容间距不一致就不再像网格，也更难扫视。
@@ -93,5 +104,7 @@ visionOS 中可在 window、有边界的 3D volume 或 immersive space 中布局
 |---|---|
 | tvOS Safe Area：主要内容距屏幕上/下 | 60 pt |
 | tvOS Safe Area：主要内容距屏幕左/右 | 80 pt |
+| tvOS 网格（2–9 列）：未聚焦内容宽度 | 860 / 560 / 410 / 320 / 260 / 217 / 184 / 160 pt |
+| tvOS 网格：水平间距 / 最小垂直间距 | 40 pt / 100 pt |
 | visionOS 控件间距：按钮中心间距 | ≥ 60 pt |
 | watchOS 一行并排控件上限 | ≤ 3 个含图标的按钮，或 ≤ 2 个含文本的按钮 |
