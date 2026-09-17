@@ -13,10 +13,12 @@
 // 前置条件链（任一不满足即执行失败，绝不继续得出"通过"）：
 //   导航无 errorText → load 在 --timeout 内触发 → 实际页面非浏览器错误页 →
 //   --ready 就绪表达式为真 → 状态脚本无异常/异步失败 → --assert 档位断言为真 →
-//   稳定等待 → 几何检测。
+//   稳定等待成功 → 几何检测。
+//   --ready / --assert 同步/异步统一求值：Promise 一律等待完成，抛异常或值不严格为 true 即失败。
 //
 // --timeout  ms   导航 load 等待上限，超时=执行失败（默认 30000；不是"等到就继续"）。
-// --deadline ms   单档总时限，超时=失败并输出超时所在阶段（默认 max(4×timeout, 60000)）。
+// --deadline ms   单档总时限，从进程启动起算（覆盖 Chrome 启动/连接/全前置链），超时=失败。
+//                 默认 max(4×timeout, 60000)。
 // --ready  <expr> 应用就绪条件，如 "!!document.querySelector('#app .toolbar')"。
 // --assert <expr> 状态生效断言，如 200% 档 "parseFloat(getComputedStyle(document.body).fontSize)>=32"。
 //                 状态文件必须断言目标字号/主题确实生效，执行过 ≠ 覆盖了该档位。
@@ -68,12 +70,36 @@ const wsReady = new Promise((res, rej) => {
   });
 });
 
+// 页面事件缓冲与失败载荷——提升到模块级，让 deadline 定时器在 Chrome 尚未启动时
+// 也能带上已收集的页面错误输出失败 JSON。
+const events = [];
+const collectErrors = () => {
+  const errors = [];
+  for (const e of events) {
+    if (e.method === 'Runtime.exceptionThrown') {
+      const d = e.params.exceptionDetails;
+      errors.push('JS异常: ' + (d.exception?.description || d.text || '').split('\n')[0].slice(0, 160));
+    } else if (e.method === 'Runtime.consoleAPICalled' && e.params.type === 'error') {
+      errors.push('console.error: ' + e.params.args.map(a => a.value ?? a.description ?? '').join(' ').slice(0, 160));
+    } else if (e.method === 'Log.entryAdded' && e.params.entry.level === 'error') {
+      errors.push('页面错误: ' + (e.params.entry.text || '').slice(0, 160));
+    }
+  }
+  return errors;
+};
+const failPayload = (msg) => ({ ok: false, blank: null, errors: collectErrors(), result: null, target: url, viewport: opt('viewport', '1440x900'), rm, stage, fail: msg });
+
 const finish = (code, payload) => {
   try { chrome.kill(); } catch {}
   try { rmSync(profileDir, { recursive: true, force: true }); } catch {}
   console.log(JSON.stringify(payload));
   process.exit(code);
 };
+
+// 总超时从进程启动起算——覆盖 Chrome 启动、WS 连接、前置链、稳定等待、检测全生命周期。
+// 旧版在 main() 内、WS 就绪之后才建立，浏览器启动卡死/连接挂起时永不触发。
+const deadlineMs = Number(opt('deadline', 0)) || Math.max(timeoutMs * 4, 60000);
+setTimeout(() => finish(2, failPayload(`总超时 ${deadlineMs}ms（阶段: ${stage}）`)), deadlineMs);
 
 async function main() {
   await wsReady;
@@ -82,7 +108,6 @@ async function main() {
 
   let msgId = 0;
   const pending = new Map();
-  const events = [];
   ws.onmessage = ev => {
     const m = JSON.parse(ev.data);
     if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
@@ -110,36 +135,28 @@ async function main() {
   if (rm) await send('Emulation.setEmulatedMedia',
     { features: [{ name: 'prefers-reduced-transparency', value: rm }] }, sessionId);
 
-  const collectErrors = () => {
-    const errors = [];
-    for (const e of events) {
-      if (e.method === 'Runtime.exceptionThrown') {
-        const d = e.params.exceptionDetails;
-        errors.push('JS异常: ' + (d.exception?.description || d.text || '').split('\n')[0].slice(0, 160));
-      } else if (e.method === 'Runtime.consoleAPICalled' && e.params.type === 'error') {
-        errors.push('console.error: ' + e.params.args.map(a => a.value ?? a.description ?? '').join(' ').slice(0, 160));
-      } else if (e.method === 'Log.entryAdded' && e.params.entry.level === 'error') {
-        errors.push('页面错误: ' + (e.params.entry.text || '').slice(0, 160));
-      }
-    }
-    return errors;
-  };
-  const failPayload = (msg) => ({ ok: false, blank: null, errors: collectErrors(), result: null, target: url, viewport: opt('viewport', '1440x900'), rm, stage, fail: msg });
-  const evalBool = async (expr) => {
+  // 统一求值：同步表达式与 Promise 一律 awaitPromise 等待，异常与「值不严格为 true」都判失败。
+  // 旧版 `!!(expr)` 包装下，返回 Promise 的断言在等待前先变 true——异步失败被当成通过。
+  const evalCheck = async (expr) => {
     const r = await send('Runtime.evaluate', {
-      expression: `(()=>{try{return !!(${expr});}catch(e){return false;}})()`, returnByValue: true,
+      expression: `(()=>{try{return (${expr});}catch(e){return {__evalError:String((e&&e.message)||e)};}})()`,
+      awaitPromise: true, returnByValue: true,
     }, sessionId);
-    return r.result?.result?.value === true;
+    const ex = r.result?.exceptionDetails;
+    if (ex) return { ok: false, reason: '表达式抛异常: ' + (ex.exception?.description || ex.text || '').split('\n')[0].slice(0, 160) };
+    const v = r.result?.result?.value;
+    if (v && typeof v === 'object' && '__evalError' in v) return { ok: false, reason: '表达式抛异常: ' + String(v.__evalError).slice(0, 160) };
+    if (v !== true) return { ok: false, reason: `表达式值 ${JSON.stringify(v)} 不严格为 true` };
+    return { ok: true };
   };
-
-  const deadlineMs = Number(opt('deadline', 0)) || Math.max(timeoutMs * 4, 60000);
-  setTimeout(() => finish(2, failPayload(`总超时 ${deadlineMs}ms`)), deadlineMs);
 
   // 前置链 1：导航。errorText 非空即失败——绝不把错误页当应用验收。
   stage = 'navigate';
   events.length = 0;                                       // 丢弃 about:blank 残留事件
-  const nav = await send('Page.navigate', { url }, sessionId);
-  if (nav.result?.errorText) return finish(2, failPayload('导航失败: ' + nav.result.errorText));
+  let nav;
+  try { nav = await send('Page.navigate', { url }, sessionId); }
+  catch (e) { return finish(2, failPayload('导航命令发送失败: ' + String(e.message || e))); }
+  if (nav?.result?.errorText) return finish(2, failPayload('导航失败: ' + nav.result.errorText));
 
   // 前置链 2：load 必须触发；等到超时=失败，不继续往下走
   stage = 'load';
@@ -161,7 +178,8 @@ async function main() {
   // 前置链 4：应用就绪条件（可配置）。"非空白"只是最低检查，证明不了加载的是用户的应用。
   if (readyExpr) {
     stage = 'ready';
-    if (!await evalBool(readyExpr)) return finish(2, failPayload('应用就绪条件未满足: ' + readyExpr));
+    const rc = await evalCheck(readyExpr);
+    if (!rc.ok) return finish(2, failPayload(`应用就绪条件未满足: ${readyExpr} — ${rc.reason}`));
   }
 
   // 前置链 5：状态 JS（切字号/主题等）。检查返回值异常 + awaitPromise 等异步完成——
@@ -173,24 +191,24 @@ async function main() {
     if (ex) return finish(2, failPayload('状态脚本执行失败: ' + (ex.exception?.description || ex.text || '').split('\n')[0].slice(0, 160)));
   }
 
-  // 等页面稳定：字体就绪 → 双 rAF → 有限时长动画收尾（无限动画跳过），总超时兜底
+  // 等页面稳定：字体就绪 → 双 rAF（2s 兜底，页面隐藏时 rAF 可能永不触发）→ 有限时长动画
+  // 收尾（无限动画跳过，3s 上限）→ 总超时兜底。结果必须检查：稳定阶段失败/超时不能继续验收。
   stage = 'stable';
-  const stable = await send('Runtime.evaluate', {
-    expression: `(async()=>{
+  const st = await evalCheck(`(async()=>{
       try{await document.fonts.ready;}catch(e){}
-      await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+      await Promise.race([new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))),new Promise(r=>setTimeout(r,2000))]);
       const anims=(document.getAnimations?document.getAnimations():[]).filter(a=>{
         try{const t=a.effect&&a.effect.getTiming();return t&&t.iterations!==Infinity;}catch(e){return false;}
       });
       await Promise.race([Promise.all(anims.map(a=>a.finished.catch(()=>{}))),new Promise(r=>setTimeout(r,3000))]);
-      return true;})()`,
-    awaitPromise: true, returnByValue: true,
-  }, sessionId);
+      return true;})()`);
+  if (!st.ok) return finish(2, failPayload('稳定等待阶段失败: ' + st.reason));
 
   // 前置链 6：档位断言——状态确实生效才算覆盖了这个档位
   if (assertExpr) {
     stage = 'assert';
-    if (!await evalBool(assertExpr)) return finish(2, failPayload('状态断言未满足: ' + assertExpr));
+    const ac = await evalCheck(assertExpr);
+    if (!ac.ok) return finish(2, failPayload(`状态断言未满足: ${assertExpr} — ${ac.reason}`));
   }
 
   const errors = collectErrors();

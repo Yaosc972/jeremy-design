@@ -58,17 +58,27 @@
   }
 }
 
-/* 强制深色（用户手选）：暗色语义值与上面 media 块是同一份——
-   工程上从该块生成副本（构建脚本）或提取共享声明，避免手抄两处漂移 */
+/* 强制深色（用户手选）：暗色语义值与上面 media 块是同一份。
+   下面的值可直接运行；工程上更稳的做法是从 media 块生成副本（构建脚本）或提取共享
+   声明，二者择一，避免两处手抄漂移。 */
 :root[data-theme="dark"] {
-  /* …此处放与 media 块相同的暗色语义值 + color-scheme: dark… */
+  --color-bg: #000000;
+  --color-bg-subtle: #1c1c1e;
+  --color-label: #f5f5f7;
+  --color-label-secondary: #a1a1a6;
+  --color-border: rgba(255, 255, 255, 0.16);
+  --color-surface: #1c1c1e;
+  --color-accent: #0a84ff;
+  --color-on-accent: #ffffff;
+  --color-danger: #ff453a;
+  color-scheme: dark;
 }
 
 /* 强制浅色：语义值即 :root 默认（亮色），只需把 color-scheme 钉回 light */
 :root[data-theme="light"] { color-scheme: light; }
 
 /* ---- 组件值 ---- */
-.btn { background: var(--color-accent); border-radius: var(--radius-md); padding: var(--space-2) var(--space-4); }
+.btn { background: var(--color-accent); color: var(--color-on-accent); border-radius: var(--radius-md); padding: var(--space-2) var(--space-4); }
 ```
 
 - 间距刻度坚持一套（如 4 的倍数），组件里出现刻度外的"魔法数字"时，先问是不是刻度该扩充，而不是就地写值。

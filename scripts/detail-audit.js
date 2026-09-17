@@ -32,6 +32,19 @@
 //      offscreen 报出待滚动复核（v3 首屏外重叠要滚动到该处才出现）。
 //  12. 新增 skipped[]——所有豁免携带元素、原因、证据，豁免可审查，不静默消失。
 //
+// v5 相对 v4 的修复（外部审查第三轮：修复条件还不完整，换一种正常页面结构仍会漏/误判）：
+//  13. 动画元素不再无条件跳过检测——自身带动画的元素照样参与；裁切是否由动效瞬态造成
+//      交 animMoved 判定。且动画证据必须是「正在运行」（playState==='running'）——
+//      finished/paused 的动画留在原地的位移/裁切是真实缺陷，照报。
+//  14. 滚动容器不再吞掉内层裁切——文字在滚动区内被内层容器裁掉（innerRatio<0.95）照报；
+//      只有「内容超出滚动区、可滚动到达」这一种情形维持豁免；容器自身被外层裁掉（<0.6）
+//      仍按 blocked 报（两条证据独立评估，取更严重者）。
+//  15. sibling 收起证据要求关联：button[aria-expanded=false] 仅与面板相邻、且没有
+//      aria-controls 指向面板（或面板容器）时属弱证据——降级为 warn「待复核」而非静默豁免
+//      （控制别的菜单的按钮不再能证明本容器合法隐藏）。
+//  16. 零面积 rect 不参与可见比——pre-wrap 换行/行首空白片段单维为 0，此前被算成
+//      「100% 被裁」，真实页面 PRE 代码树误报 blocked（v4 遗留，fixture c16 复现回归）。
+//
 // 误报规避（历史实战积累，改检测逻辑前先读）：
 //   a. overlap 只遍历元素的「直接子文本节点」——TreeWalker 全后代会让父子矩形互相误报。
 //   b. wrapped 用「逐字符 Range」测行——多 rect 各带完整 nodeValue 会重复计数。
@@ -46,26 +59,28 @@ function AUDIT(){
 
   // v4：豁免必须带证据。可折叠证据来源——<details> 收起态、aria-expanded="false"，
   // 以及 aria-controls 指向本容器的折叠控件（其 aria-expanded 当前为 false）。
+  // v5：证据分强弱——{why, weak}。只有「邻接 sibling 且无 aria-controls 关联」是弱证据
+  // （可能是控制别的面板的按钮），其余为强证据。
   const ctrlIds=new Set();
   document.querySelectorAll('[aria-expanded="false"][aria-controls]').forEach(b=>{const id=b.getAttribute('aria-controls');if(id)ctrlIds.add(id);});
   const foldEvidence=p=>{
-    if(p.tagName==='DETAILS'&&!p.open)return 'details';
-    if(p.closest('details:not([open])'))return 'details-ancestor';
-    if(p.getAttribute('aria-expanded')==='false')return 'aria-expanded';
+    if(p.tagName==='DETAILS'&&!p.open)return {why:'details'};
+    if(p.closest('details:not([open])'))return {why:'details-ancestor'};
+    if(p.getAttribute('aria-expanded')==='false')return {why:'aria-expanded'};
     let q=p;
     while(q&&q!==document.body){
-      if(q.id&&ctrlIds.has(q.id))return 'aria-controls';
+      if(q.id&&ctrlIds.has(q.id))return {why:'aria-controls'};
       q=q.parentElement;
     }
-    if(p.closest('[aria-expanded="false"]'))return 'aria-expanded-ancestor';
+    if(p.closest('[aria-expanded="false"]'))return {why:'aria-expanded-ancestor'};
     // 兄弟结构 accordion（button[aria-expanded=false] 紧邻折叠面板）：控件在前一个兄弟上。
     // 折叠面板可能是容器自身或其子孙包裹层（如 grid-template-rows:0fr 实现里真正
     // overflow:hidden 的是 .acc-body>div），故沿祖先链有限跳数向上，查找前兄弟中的
-    // aria-expanded=false 控件。
+    // aria-expanded=false 控件。v5：单纯邻接不构成关联——controls 未指向本面板时弱证据。
     let s=p,n=0;
     while(s&&s!==document.body&&n<4){
       const sib=s.previousElementSibling;
-      if(sib&&(sib.getAttribute('aria-expanded')==='false'||(sib.querySelector&&sib.querySelector('[aria-expanded="false"]'))))return 'aria-expanded-sibling';
+      if(sib&&(sib.getAttribute('aria-expanded')==='false'||(sib.querySelector&&sib.querySelector('[aria-expanded="false"]'))))return {why:'aria-expanded-sibling',weak:true};
       s=s.parentElement;n++;
     }
     return null;
@@ -103,7 +118,7 @@ function AUDIT(){
   };
   const clipRect=(r,el,mode)=>{
     const onlyClip=mode==='clip';
-    let p=onlyClip?el:el.parentElement,folded=false,foldWhy=null,scrollInfo=null;
+    let p=onlyClip?el:el.parentElement,folded=false,foldWhy=null,scrollInfo=null,weakFold=null;
     let o={x:r.left,y:r.top,w:r.width,h:r.height,nodes:[]};
     while(p&&p!==document.body){
       const cs=getComputedStyle(p);
@@ -111,13 +126,18 @@ function AUDIT(){
       const hidden=/hidden|clip/.test(ov);
       if(onlyClip&&hidden&&(p.clientHeight<4||p.clientWidth<4)){
         const ev=foldEvidence(p);
-        if(ev){folded=true;foldWhy=ev;break;}   // v4：有展开入口证据的收起态才豁免
+        if(ev&&!ev.weak){folded=true;foldWhy=ev.why;break;}   // v4：有展开入口证据的收起态才豁免
+        if(ev&&ev.weak)weakFold=ev.why;                       // v5：弱证据不豁免，继续算裁剪并降级 warn
         // 无入口证据：不豁免，落入下方常规裁剪计算（矮容器裁掉文字要报）
       }
       if(onlyClip&&/auto|scroll/.test(ov)){
         // v4：内容可经滚动到达（内容维度豁免），但容器自身被外层裁掉时滚动区整体不可达——
         // 记容器经外层裁剪后的可见比，交调用方裁决。
+        // v5：内层已累计的 hidden 裁剪（o）不能丢——文字在滚动区内被内层容器裁掉仍是
+        // 真实裁切；只有「内容超出滚动区」这一种情形由滚动豁免。两条证据独立交调用方。
         scrollInfo=rectRatioThroughAncestors(p);
+        scrollInfo.innerRatio=Math.max(0,o.w*o.h)/Math.max(1,r.width*r.height);
+        scrollInfo.innerCutter=o.nodes[0]||null;
         break;
       }
       if(onlyClip?hidden:/hidden|auto|scroll|clip/.test(ov)){
@@ -127,14 +147,15 @@ function AUDIT(){
       }
       p=p.parentElement;
     }
-    o.folded=folded;o.foldWhy=foldWhy;o.scrollInfo=scrollInfo;
+    o.folded=folded;o.foldWhy=foldWhy;o.scrollInfo=scrollInfo;o.weakFold=weakFold;
     return o;
   };
 
-  // 豁免辅助：文字可见比低是否由 transform 位移造成。v4 起只有伴随运行中动画证据
-  // （CSS animation 或 WAAPI 活动动画，位移元素或其祖先链上任一元素持有）才算动效瞬态
-  // 豁免；静态 transform 位移不豁免。返回 null（无位移）或 {node, evidence}
-  // （evidence=null 表示有位移但整条链都没有动画证据）。
+  // 豁免辅助：文字可见比低是否由 transform 位移造成。v4 起只有伴随动画证据（位移元素
+  // 或其祖先链上任一元素持有）才算动效瞬态豁免；静态 transform 位移不豁免。
+  // v5：动画证据必须「正在运行」（playState==='running'）——finished/paused 的动画留在
+  // 原位置的位移/裁切是真实缺陷（fill-forwards 停在视口外的元素、被暂停的跑马灯）。
+  // 返回 null（无位移）或 {node, evidence}（evidence=null 表示有位移但整条链都没有运行中动画）。
   const animMoved=(el,box)=>{
     if(!box)return null;
     const c=box.getBoundingClientRect();
@@ -146,8 +167,10 @@ function AUDIT(){
         if(r.bottom>c.bottom+2||r.right>c.right+2||r.top<c.top-2||r.left<c.left-2)moved=p;
       }
       if(!evidence){
-        if(cs.animationName&&cs.animationName!=='none')evidence='css-animation: '+cs.animationName.split(',')[0];
-        else try{if(p.getAnimations&&p.getAnimations().length)evidence='waapi';}catch(e){}
+        try{
+          const run=(p.getAnimations?p.getAnimations():[]).find(a=>a.playState==='running');
+          if(run)evidence=run.animationName?('css-animation: '+run.animationName+' (running)'):'waapi (running)';
+        }catch(e){}
       }
       p=p.parentElement;
     }
@@ -159,7 +182,6 @@ function AUDIT(){
     if(el.closest('script,style,head,svg'))continue;
     const cs=getComputedStyle(el);
     if(cs.display==='none'||cs.visibility==='hidden'||parseFloat(cs.opacity)<0.05)continue;
-    if(cs.animationName&&cs.animationName!=='none')continue;
     if(!visChain(el))continue;
 
     let hasText=false,hasBlock=false;
@@ -182,17 +204,24 @@ function AUDIT(){
       if(n.nodeType!==3||!n.nodeValue.trim())continue;
       const rg=document.createRange();rg.selectNodeContents(n);
       for(const x of rg.getClientRects()){
-        if(x.width<1&&x.height<1)continue;
+        // 单维为 0 的零面积矩形（pre-wrap 换行/行首空白片段、零宽字符）不承载可见文字，
+        // 参与可见比会被算成「100% 被裁」——真实页实测误报（PRE 代码树报 ratio 0）。
+        if(x.width<1||x.height<1)continue;
         const cv=clipRect(x,el,'clip');
         let cand=null;
         if(cv.folded){
           // v4：有展开入口证据的合法收起——记入 skipped（可审查），不判裁切
           skip(n.nodeValue.trim().slice(0,24),el.tagName+'.'+String(el.className||'').slice(0,24),'collapsed',cv.foldWhy);
         }else if(cv.scrollInfo){
-          // 滚动容器可见则内容可滚动到达（不判）；容器自身被外层裁掉大半则滚动区整体不可达
-          if(cv.scrollInfo.ratio<0.6)cand={ratio:cv.scrollInfo.ratio,box:cv.scrollInfo.cutter,note:'滚动区自身被外层裁切(可见比'+cv.scrollInfo.ratio.toFixed(2)+')'};
+          // 滚动豁免只覆盖「内容超出滚动区、可滚动到达」；两条独立证据取更严重者：
+          // ①滚动区自身被外层裁掉大半（整体不可达）②文字在滚动区内被内层容器裁掉（v5）。
+          const si=cv.scrollInfo,cands=[];
+          if(si.ratio<0.6)cands.push({ratio:si.ratio,box:si.cutter,note:'滚动区自身被外层裁切(可见比'+si.ratio.toFixed(2)+')'});
+          if(si.innerRatio<0.95)cands.push({ratio:si.innerRatio,box:si.innerCutter,note:'滚动区内被内层裁切(可见比'+si.innerRatio.toFixed(2)+')'});
+          if(cands.length)cand=cands.sort((a,b)=>a.ratio-b.ratio)[0];
         }else{
-          cand={ratio:(cv.w*cv.h)/Math.max(1,x.width*x.height),box:cv.nodes[0]||null,note:null};
+          cand={ratio:(cv.w*cv.h)/Math.max(1,x.width*x.height),box:cv.nodes[0]||null,
+                note:cv.weakFold?('邻接收起控件 '+cv.weakFold+' 缺 aria-controls 关联，待复核'):null,weakFold:cv.weakFold};
         }
         if(cand&&cand.ratio<cut.ratio)cut=cand;
         const c=clipRect(x,el);
@@ -202,12 +231,15 @@ function AUDIT(){
     }
     // 可见比 <0.6 = 内容不可读（blocked）；0.6~0.95 = 轻微切边（warn，待复核）。
     // v4：transform 位移只有伴随动画证据才豁免（记 skipped）；静态位移照报并注明。
+    // v5：动画证据须运行中（animMoved 内判定）；弱折叠证据（邻接无关联）强制 warn 待复核。
     if(cut.ratio<0.95){
       const am=animMoved(el,cut.box);
       if(am&&am.evidence){
         skip(el.textContent.replace(/\s+/g,' ').trim().slice(0,24),el.tagName+'.'+String(el.className||'').slice(0,24),'transform-transient',am.evidence);
+      }else if(cut.weakFold){
+        out.clip.push({sev:'warn',t:el.textContent.replace(/\s+/g,' ').trim().slice(0,24),tag:el.tagName+'.'+String(el.className||'').slice(0,24),cutter:cut.box?cut.box.tagName+'.'+String(cut.box.className||'').slice(0,24)+'('+cut.box.clientWidth+'x'+cut.box.clientHeight+')':'?',ratio:+cut.ratio.toFixed(2),note:cut.note||undefined,y:el.getBoundingClientRect().top|0});
       }else{
-        out.clip.push({sev:cut.ratio<0.6?'blocked':'warn',t:el.textContent.replace(/\s+/g,' ').trim().slice(0,24),tag:el.tagName+'.'+String(el.className||'').slice(0,24),cutter:cut.box?cut.box.tagName+'.'+String(cut.box.className||'').slice(0,24)+'('+cut.box.clientWidth+'x'+cut.box.clientHeight+')':'?',ratio:+cut.ratio.toFixed(2),note:cut.note||(am?'静态transform位移，无动画证据':undefined),y:el.getBoundingClientRect().top|0});
+        out.clip.push({sev:cut.ratio<0.6?'blocked':'warn',t:el.textContent.replace(/\s+/g,' ').trim().slice(0,24),tag:el.tagName+'.'+String(el.className||'').slice(0,24),cutter:cut.box?cut.box.tagName+'.'+String(cut.box.className||'').slice(0,24)+'('+cut.box.clientWidth+'x'+cut.box.clientHeight+')':'?',ratio:+cut.ratio.toFixed(2),note:cut.note||(am?'transform位移，无运行中动画证据':undefined),y:el.getBoundingClientRect().top|0});
       }
     }
     if(!rects.length)continue;

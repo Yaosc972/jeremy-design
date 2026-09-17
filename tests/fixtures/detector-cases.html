@@ -9,6 +9,8 @@
   .case{font-size:12px;color:#666;margin-bottom:6px}
   .probe{position:relative;display:block}
   @keyframes stage-fly{from{transform:translate(280px,60px)}to{transform:translate(292px,60px)}}
+  @keyframes slide-out{from{transform:translate(0,0)}to{transform:translate(0,200px)}}
+  @keyframes jump-out{from{transform:translate(400px,0)}to{transform:translate(430px,0)}}
 </style>
 </head>
 <body>
@@ -49,11 +51,18 @@
 </section>
 
 <section id="c11-sibling-accordion">
-  <div class="case">用例11 反例：兄弟结构 accordion（button[aria-expanded=false] 紧跟零高度面板，无 aria-controls）—— 期望：不在 clip（skipped 记 collapsed）</div>
+  <div class="case">用例11 反例：兄弟结构 accordion（button[aria-expanded=false] + aria-controls 指向面板）—— 期望：不在 clip（skipped 记 collapsed）</div>
   <div class="acc">
-    <button type="button" aria-expanded="false" style="font:inherit">分组标题</button>
-    <div style="height:0;overflow:hidden">兄弟结构收起面板里的说明文字</div>
+    <button type="button" aria-expanded="false" aria-controls="c11-panel" style="font:inherit">分组标题</button>
+    <div id="c11-panel" style="height:0;overflow:hidden">兄弟结构收起面板里的说明文字</div>
   </div>
+</section>
+
+<section id="c15-unrelated-sibling">
+  <div class="case">用例15 正例：矮面板的邻接按钮控制的是别的面板（无 aria-controls 关联）—— 期望：clip 报 warn「待复核」</div>
+  <button type="button" aria-expanded="false" aria-controls="c15-other" style="font:inherit">侧栏菜单按钮</button>
+  <div style="height:0;overflow:hidden">与本按钮无关的面板文字不该被静默豁免</div>
+  <div id="c15-other" style="height:0;overflow:hidden">被按钮控制的面板在别处</div>
 </section>
 
 <!-- 正例（检测器应报出） -->
@@ -85,6 +94,40 @@
 <section id="c10-tiny-no-entry">
   <div class="case">用例10 正例：3px 容器裁掉文字且无展开入口 —— 期望：clip 报出（blocked）</div>
   <div style="height:3px;overflow:hidden">没有任何展开入口的矮容器里的重要文字</div>
+</section>
+
+<section id="c12-finished-anim">
+  <div class="case">用例12 正例：动画已结束（fill:forwards 停在裁切位置，playState=finished）—— 期望：clip 报出（blocked）</div>
+  <div style="position:relative;width:300px;height:60px;overflow:hidden;background:#f2f2f7">
+    <div style="position:absolute;left:0;top:0;animation:slide-out .4s linear forwards">已结束动画停在舞台外的说明文字</div>
+  </div>
+</section>
+
+<section id="c13-paused-anim">
+  <div class="case">用例13 正例：动画被暂停（playState=paused 停在裁切位置）—— 期望：clip 报出（blocked）</div>
+  <div style="position:relative;width:300px;height:60px;overflow:hidden;background:#f2f2f7">
+    <div style="position:absolute;left:0;top:0;animation:jump-out 2s linear infinite;animation-play-state:paused">已暂停动画停在舞台外的说明文字</div>
+  </div>
+</section>
+
+<section id="c16-pre-wrap">
+  <div class="case">用例16 反例：pre-wrap 代码树（行首空白/换行产生零面积 rect）—— 期望：不在 clip</div>
+  <pre style="margin:0;padding:14px;background:#101827;color:#d9e0ea;font:12px/1.7 ui-monospace,monospace;white-space:pre-wrap">src/
+├── styles/
+│   ├── variables.css
+│   ├── base.css
+│   ├── components/
+│   └── utilities.css
+├── components/
+└── pages/</pre>
+</section>
+
+<section id="c14-scroll-inner-clip">
+  <div class="case">用例14 正例：滚动区内的文字被内层容器裁掉 —— 期望：内层裁切报 blocked（注明"滚动区内被内层裁切"）；正常可滚动内容不报</div>
+  <div style="width:300px;height:80px;overflow:auto;border:1px solid #ddd">
+    <div style="height:5px;overflow:hidden">滚动区内部的矮容器把这段文字裁掉了</div>
+    <div style="padding:6px 0">这段超长内容可以正常滚动查看，不应被判为裁切——占位占位占位占位占位占位占位占位占位占位占位占位占位占位</div>
+  </div>
 </section>
 
 </body>

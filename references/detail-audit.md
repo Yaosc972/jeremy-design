@@ -20,19 +20,23 @@ echo 'for(let i=0;i<5;i++)document.getElementById("dtPlus").click()' > dt150.js
 echo 'document.documentElement.dataset.theme="dark"' > dark.js
 
 ./scripts/audit-matrix.sh http://localhost:5173/workbench \
-  --dim "dt100.js,dt150.js,dt200.js" --dim "light.js,dark.js"
+  --dim "dt100.js,dt150.js,dt200.js" --dim "light.js,dark.js" \
+  --ready "!!document.querySelector('#app .toolbar')" \
+  --assert "parseFloat(getComputedStyle(document.body).fontSize)>=32"
 
 # 单档调试 + 截图目视复核
 node scripts/audit-runner.mjs --target page.html --audit scripts/detail-audit.js \
   --viewport 1440x900 --rm reduce --state dt150.js --shot /tmp/check.png
 ```
 
+`--ready`（应用就绪条件）与 `--assert`（档位生效断言）可透传：**执行过状态脚本 ≠ 覆盖了这个档位**——只有断言目标字号/主题确实生效，才允许采信该档位结果。两者同步/异步统一求值（Promise 等待完成，抛异常或值不严格为 `true` 即判执行失败）。
+
 运行器要点：
 
 - **支持 URL 与本地文件**：开发服务器页面、具体路由可直接检查；不复制 HTML、不改变相对资源解析。
 - **真两态模拟**：`reduced-transparency` 通过 CDP 媒体模拟分别设 `reduce` / `no-preference` 实测（`--rm both` 两态都跑），不靠字符串替换。
-- **等待可验证状态**：load 事件 → 注入状态脚本 → `document.fonts.ready` + 双 rAF + 等待全部动画 finished（封顶 3s），不用固定 sleep 赌过渡时长。
-- **退出码**：`0`=全绿；`1`=检出阻断问题；`2`=执行失败（页面打不开/空白/控制台报错/AUDIT 失败）——执行失败不能当作通过。
+- **等待可验证状态**：load 事件 → 注入状态脚本 → `document.fonts.ready` + 双 rAF + 等待全部动画 finished（封顶 3s），不用固定 sleep 赌过渡时长；稳定等待失败按执行失败处理。全流程受 `--deadline` 总时限约束（从进程启动起算，覆盖浏览器启动与连接），超时=失败。
+- **退出码**：`0`=全绿；`1`=检出阻断问题；`2`=执行失败（页面打不开/空白/控制台报错/前置断言未满足/AUDIT 失败）——执行失败不能当作通过。
 - `--shot <out.png>`（可用 `--shot-at <y>` 先滚动到指定位置）输出视口截图，供改过布局的元素目视复核。
 
 ## 二、五类检测与 severity
@@ -47,13 +51,13 @@ node scripts/audit-runner.mjs --target page.html --audit scripts/detail-audit.js
 
 **已知例外**（处置原则：合法遮挡、允许滚动的数据区、明确设计的截断且有完整内容入口）。**豁免不静默**：检测器把全部豁免记入输出的 `skipped[]`（元素、原因、证据），复核时逐条查看"ⓘ 豁免 N 项"清单；证据不足的候选照常报出：
 
-- 零高度收起容器（accordion 关闭态）内的内容——**须有展开入口证据**：`<details>`、`aria-expanded` 控件（自身/祖先/**兄弟结构**，如 button 紧跟零高度面板）。证据取值 `details` / `details-ancestor` / `aria-expanded` / `aria-expanded-ancestor` / `aria-expanded-sibling`，记 `skipped` 原因 `collapsed`；裸零高度容器（用户没有任何展开路径）照报；
-- `auto/scroll` 滚动容器内的裁切（滚轮、表格横滚）——内容有可达路径；但**滚动区自身被外层裁切**（可见比 <0.6）仍报——滚不动也看不全；
-- transform 位移出容器的元素——**只有伴随动画证据（CSS animation / WAAPI）**的位移才豁免（`transform-transient`，动效舞台瞬态）；静态 transform 位移照报并注明——可能是布局错位而非动画；
+- 零高度收起容器（accordion 关闭态）内的内容——**须有展开入口证据**：`<details>`、`aria-expanded` 控件（自身/祖先/**兄弟结构**，如 button 紧跟零高度面板）。证据取值 `details` / `details-ancestor` / `aria-expanded` / `aria-expanded-ancestor` / `aria-controls` / `aria-expanded-sibling`，记 `skipped` 原因 `collapsed`；**邻接兄弟属弱证据**——按钮没有 `aria-controls` 指向该面板（或其容器）时可能是控制别的菜单的按钮，不豁免而是降级 `warn`「待复核」；裸零高度容器（用户没有任何展开路径）照报；
+- `auto/scroll` 滚动容器内的裁切（滚轮、表格横滚）——**仅"内容超出滚动区、可滚动到达"这一种情形豁免**；文字在滚动区内被**内层容器**裁掉（内层裁切可见比 <0.95）照报并注明"滚动区内被内层裁切"；**滚动区自身被外层裁切**（可见比 <0.6）也报——滚不动也看不全；
+- transform 位移出容器的元素——**只有伴随「运行中」动画证据（playState=`running` 的 CSS animation / WAAPI）**的位移才豁免（`transform-transient`，动效舞台瞬态）；静态位移、已结束（`finished`，如 fill-forwards 停在视口外）、已暂停（`paused`，被冻结的跑马灯）的动画位移照报——留在原地的裁切是真实缺陷；
 - 被不透明层盖住的下层文字（弹层遮挡）——不构成可见冲突；
-- 动画中元素与不可见子树（display/visibility/opacity 链）。
+- 不可见子树（display/visibility/opacity 链）——完全不参与检测；动画元素正常参与，裁切是否瞬态交上面的动画证据判定。
 
-检测器的误报规避逻辑（改检测代码前必读）：只遍历直接子文本节点、逐字符 Range 测行、行聚类用邻近算法、含 `<br>` 豁免、80 字符上限、CJK 门卫、动画/不可见子树跳过——细节见 `detail-audit.js` 文件头。
+检测器的误报规避逻辑（改检测代码前必读）：只遍历直接子文本节点、逐字符 Range 测行、行聚类用邻近算法、含 `<br>` 豁免、80 字符上限、CJK 门卫、不可见子树跳过——细节见 `detail-audit.js` 文件头。**改动检测器后必须跑 `node tests/regression.mjs`**：正反例（含 finished/paused 动画、滚动区内层裁切、无关联 sibling、pre-wrap 零面积矩形等）与运行器失败路径（异步断言为假/抛异常/超时必须 `exit 2`）会在这里拦截误报、漏报与误通过。
 
 ## 三、验收矩阵（按项目实际状态组织）
 
