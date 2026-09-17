@@ -1,28 +1,36 @@
-// 前端细节审查脚本 — 无依赖，注入页面后调用 AUDIT()
+// 前端细节检测器 v3 — 无依赖，注入页面后调用 AUDIT()
 //
-// 用法：配合 audit-matrix.sh 跑档位矩阵；或手工注入（<script> 内含本文件 → load 后调用 AUDIT()）。
-// 返回 { overflowX, pageH, tight[], overlap[], wrapped[] }——四类检测全部应为空数组 / 0。
+// 用法：由 audit-runner.mjs / audit-matrix.sh 自动注入；或手工 <script> 注入后调用 AUDIT()。
+// 返回 { overflowX, clip[], tight[], overlap[], wrapped[], counts:{blocked,warn} }。
 //
-// 检测：
-//   overflowX  页面级水平溢出（scrollWidth - innerWidth，>0 即事故）
-//   tight      line-height < 字号×0.95（字形上下溢出风险，常见于固定 px 行高不随字号缩放）
-//   overlap    两个文本叶子元素的单行矩形视觉重叠（ox>35% 且 oy>50%）
-//   wrapped    CJK 拆词折行：≥2 行且存在 ≤2 字符的行（孤字行/四字标签拆 3+1）
+// 五类检测（v3 起分两级：blocked 需修复，warn 需人工复核后处置）：
+//   overflowX  blocked  页面级水平溢出（scrollWidth - innerWidth > 0，布局严重溢出）
+//   clip       blocked  该段文字裁剪后可见面积比 <0.6（内容不可读）
+//              warn     可见面积比 0.6~0.95（文字轻微切边，待复核）
+//   tight      warn     line-height < 字号×0.95（行高偏紧）
+//   overlap    warn     两个文本矩形的视觉重叠（不透明层遮盖场景已豁免）
+//   wrapped    warn     CJK 短文案折行且存在 ≤2 字符的行（短行/孤字）
 //
-// 误报规避（全部来自实战踩坑，改动检测逻辑前先读）：
-//   1. overlap 只遍历元素的「直接子文本节点」——若遍历全部后代（TreeWalker），父元素与内层
-//      inline（code/span/b）会把同一段文字各收集一次，父子矩形相互误报。
-//   2. wrapped 用「逐字符 Range」测量而非按 rect 统计字符——一个跨行文本节点的每个
-//      getClientRects() 都带完整 nodeValue，按 rect 统计会把同一段文字重复计数。
-//   3. 行聚类用邻近算法（tol = max(8px, 字号×0.5)）而非坐标分桶——chip/徽章与相邻文本
-//      基线差 1-2px 会被分桶法误判为换行。
-//   4. 含 <br> 的元素豁免——那是作者显式断行，不是拆词事故。
-//   5. 文本总长上限 80 字符（低于此才可能是 UI 短文案；长段落末行 2 字属正常排版波动，
-//      由 text-wrap:pretty/balance 缓解，不作为检测目标）。
-//   6. 动画元素跳过（animationName 非 none 时几何不稳定）；display:none / opacity<0.05
-//      的子树不检测；overflow 裁剪后的矩形（clipRect）若不可见则不计。
+// v3 相对 v2 的修复（来自外部审查的浏览器实测用例与演示页回归）：
+//   1. wrapped 增加 CJK 门卫——英文在空格处正常换行不再误报（v2 名为 CJK 检测却未判断 CJK）。
+//   2. 可见性链补祖先 opacity 检查——祖先 opacity:0 的子树不再参与检测。
+//   3. overlap 增加遮挡豁免——对重叠双方分别判定中心点可见性；一方被不透明层盖住即非可见冲突。
+//   4. 新增 clip 检测——v2 对 height:5px + overflow:hidden 裁掉文字的场景四项全零。
+//   5. clip 判据为「文字自身可见面积比」而非「容器有无溢出」——装饰线/位移元素撑出容器时
+//      不再连带误报容器内的完整文字（v3 初版的容器级判据在演示页产生 29 条误报）。
+//   6. clip 豁免：零高度收起容器（accordion 合法隐藏）、transform 位移源（动效瞬态）。
+//   7. severity 分级——检测器只报事实与建议级别，处置归设计判断（见 detail-audit.md）。
+//
+// 误报规避（历史实战积累，改检测逻辑前先读）：
+//   a. overlap 只遍历元素的「直接子文本节点」——TreeWalker 全后代会让父子矩形互相误报。
+//   b. wrapped 用「逐字符 Range」测行——多 rect 各带完整 nodeValue 会重复计数。
+//   c. 行聚类用邻近算法（tol = max(8px, 字号×0.5)）——chip 基线差 1-2px 会被分桶法误判。
+//   d. 含 <br> 的元素豁免——作者显式断行。
+//   e. 文本长度上限 80 字符——长段落末行属正常排版波动。
+//   f. 动画元素（animationName 非 none）与不可见子树跳过；裁剪后不可见的矩形不计。
 function AUDIT(){
-  const out={overflowX:0,pageH:document.documentElement.scrollHeight,tight:[],overlap:[],wrapped:[]};
+  const CJK=/[⺀-鿿぀-ヿ가-힯豈-﫿]/;
+  const out={overflowX:0,pageH:document.documentElement.scrollHeight,clip:[],tight:[],overlap:[],wrapped:[]};
   out.overflowX=Math.max(0,document.documentElement.scrollWidth-window.innerWidth);
 
   const visChain=el=>{
@@ -30,22 +38,50 @@ function AUDIT(){
     while(p&&p!==document.documentElement){
       const cs=getComputedStyle(p);
       if(cs.display==='none'||cs.visibility==='hidden'||cs.contentVisibility==='hidden')return false;
+      if(parseFloat(cs.opacity)<0.05)return false;               // v3: 祖先透明链
       p=p.parentElement;
     }
     return true;
   };
-  const clipRect=(r,el)=>{
-    let p=el.parentElement,o={x:r.left,y:r.top,w:r.width,h:r.height};
+  // 矩形裁剪：mode='visible' 含 auto/scroll 滚动区（重叠判定用：滚动区外文字确实不可见）；
+  // mode='clip' 只算 hidden/clip（裁切判定用），从 el 自身起算。返回 nodes=裁剪层（内→外，
+  // nodes[0] 为最直接责任者）；folded=true 表示链上遇到完全收起的容器（accordion 收起态
+  // 这类「有入口的合法隐藏」——内容穿透零高度层后被外层容器再裁，也整体豁免）。
+  const clipRect=(r,el,mode)=>{
+    const onlyClip=mode==='clip';
+    let p=onlyClip?el:el.parentElement,folded=false;
+    let o={x:r.left,y:r.top,w:r.width,h:r.height,nodes:[]};
     while(p&&p!==document.body){
       const cs=getComputedStyle(p);
-      if(/hidden|auto|scroll|clip/.test(cs.overflow+cs.overflowX+cs.overflowY)){
+      const ov=cs.overflow+cs.overflowX+cs.overflowY;
+      const hidden=/hidden|clip/.test(ov);
+      if(onlyClip&&hidden&&(p.clientHeight<4||p.clientWidth<4)){folded=true;break;}
+      if(onlyClip&&/auto|scroll/.test(ov))break;   // 滚动容器=内容可达边界（滚轮/表格横滚属已知例外），其外不再判裁
+      if(onlyClip?hidden:/hidden|auto|scroll|clip/.test(ov)){
         const pr=p.getBoundingClientRect();
         const x1=Math.max(o.x,pr.left),y1=Math.max(o.y,pr.top);
-        o={x:x1,y:y1,w:Math.max(0,Math.min(o.x+o.w,pr.right)-x1),h:Math.max(0,Math.min(o.y+o.h,pr.bottom)-y1)};
+        o={x:x1,y:y1,w:Math.max(0,Math.min(o.x+o.w,pr.right)-x1),h:Math.max(0,Math.min(o.y+o.h,pr.bottom)-y1),nodes:o.nodes.concat(p)};
       }
       p=p.parentElement;
     }
+    o.folded=folded;
     return o;
+  };
+
+  // 豁免辅助：文字可见比低是否由 transform 位移造成（动效舞台里被 JS 移出舞台的球/拖拽卡片）。
+  // 用户看到的是动画过程而非内容缺失，属「已知例外」。裁剪容器正常、仅元素被位移时豁免。
+  const animMoved=(el,box)=>{
+    if(!box)return false;
+    const c=box.getBoundingClientRect();
+    let p=el;
+    while(p&&p!==box.parentElement){
+      if(getComputedStyle(p).transform!=='none'){
+        const r=p.getBoundingClientRect();
+        if(r.bottom>c.bottom+2||r.right>c.right+2||r.top<c.top-2||r.left<c.left-2)return true;
+      }
+      p=p.parentElement;
+    }
+    return false;
   };
 
   const leaves=[];
@@ -53,7 +89,7 @@ function AUDIT(){
     if(el.closest('script,style,head,svg'))continue;
     const cs=getComputedStyle(el);
     if(cs.display==='none'||cs.visibility==='hidden'||parseFloat(cs.opacity)<0.05)continue;
-    if(cs.animationName&&cs.animationName!=='none')continue;      // 动画元素几何在变，跳过
+    if(cs.animationName&&cs.animationName!=='none')continue;
     if(!visChain(el))continue;
 
     let hasText=false,hasBlock=false;
@@ -62,31 +98,42 @@ function AUDIT(){
       else if(n.nodeType===1){const d=getComputedStyle(n).display;if(d!=='inline'&&d!=='inline-block')hasBlock=true;}
     }
     if(!hasText)continue;
-    if(hasBlock)continue;                                        // 只看文本叶子，容器由子元素代表
+    if(hasBlock)continue;                                        // 只看文本叶子
 
     const fs=parseFloat(cs.fontSize),lh=parseFloat(cs.lineHeight);
-    if(lh&&fs&&lh<fs*0.95)out.tight.push({t:el.textContent.trim().slice(0,24),fs,lh,tag:el.tagName+'.'+String(el.className||'').slice(0,24)});
+    if(lh&&fs&&lh<fs*0.95)out.tight.push({sev:'warn',t:el.textContent.trim().slice(0,24),fs,lh,tag:el.tagName+'.'+String(el.className||'').slice(0,24)});
 
-    // 单行矩形：Range 按文本节点拆行，彻底消除跨行 inline 联合矩形误报；
-    // 只取直接子文本节点——否则父元素与内层 inline（code/span/b/em）收集同一段文字互相误报重叠
+    // v3 第五类：文字被 overflow 裁切。判据是「这段文字自身裁剪后的可见面积比」，
+    // 不看容器整体溢出 —— 容器溢出但文字完整的情况（装饰线 top:50%+height:100% 撑出、
+    // 位移出去的动效元素撑出）不再连带误报容器内其他文本。
     const rects=[];
+    let cut={ratio:1,box:null};
     for(const n of el.childNodes){
       if(n.nodeType!==3||!n.nodeValue.trim())continue;
       const rg=document.createRange();rg.selectNodeContents(n);
       for(const x of rg.getClientRects()){
         if(x.width<1&&x.height<1)continue;
+        const cv=clipRect(x,el,'clip');
+        if(!cv.folded){                                            // 收起态容器（accordion 等）内内容合法隐藏，不判裁切
+          const rr=(cv.w*cv.h)/Math.max(1,x.width*x.height);
+          if(rr<cut.ratio)cut={ratio:rr,box:cv.nodes[0]||null};
+        }
         const c=clipRect(x,el);
         if(c.w<1&&c.h<1)continue;
         rects.push({...c,t:n.nodeValue.trim(),owner:el});
       }
     }
+    // 可见比 <0.6 = 内容不可读（blocked）；0.6~0.95 = 轻微切边（warn，待复核）；
+    // transform 位移源的瞬态（动效舞台）豁免。cutter 取最内层裁剪容器（最直接责任者）。
+    if(cut.ratio<0.95&&!animMoved(el,cut.box)){
+      out.clip.push({sev:cut.ratio<0.6?'blocked':'warn',t:el.textContent.replace(/\s+/g,' ').trim().slice(0,24),tag:el.tagName+'.'+String(el.className||'').slice(0,24),cutter:cut.box?cut.box.tagName+'.'+String(cut.box.className||'').slice(0,24)+'('+cut.box.clientWidth+'x'+cut.box.clientHeight+')':'?',ratio:+cut.ratio.toFixed(2),y:el.getBoundingClientRect().top|0});
+    }
     if(!rects.length)continue;
 
     const txt=el.textContent.replace(/\s+/g,' ').trim();
 
-    // CJK 拆词近似：短文案折行且存在 ≤2 字符的行（四字标签被拆成 3+1 的事故形态）
-    // 逐字符 Range 测行（含 inline 子元素文字）；行按 y 邻近聚类（chip 基线微差不算换行）；<br> 是作者显式断行，豁免
-    if(txt.length>=2&&txt.length<=80&&!el.querySelector('br')){
+    // CJK 拆词近似：v3 起先判断文本含 CJK——英文正常断行（空格处换行）不是本检测目标
+    if(CJK.test(txt)&&txt.length>=2&&txt.length<=80&&!el.querySelector('br')){
       const chs=[];
       const walkCn=(node)=>{
         if(node.nodeType===3){
@@ -107,17 +154,23 @@ function AUDIT(){
         perLine[perLine.length-1].n++;
       }
       if(perLine.length>=2&&perLine.some(l=>l.n<=2))
-        out.wrapped.push({t:txt.slice(0,30),lines:perLine.length,perLine:perLine.map(l=>l.n),tag:el.tagName+(el.id?'@'+el.id:'')+(el.className&&String(el.className).trim()?'@'+String(el.className).split(' ')[0]:''),y:perLine[0].y|0});
+        out.wrapped.push({sev:'warn',t:txt.slice(0,30),lines:perLine.length,perLine:perLine.map(l=>l.n),tag:el.tagName+(el.id?'@'+el.id:'')+(el.className&&String(el.className).trim()?'@'+String(el.className).split(' ')[0]:''),y:perLine[0].y|0});
     }
 
     leaves.push({rects});
   }
 
-  // 视觉重叠：单行矩形按 y 排序 + 邻近窗口两两比对
+  // 视觉重叠：单行矩形按 y 排序 + 邻近窗口两两比对；v3 起对重叠中心点做顶层遮挡豁免
   const allR=[];
   for(const L of leaves)for(const r of L.rects)allR.push(r);
   allR.sort((a,b)=>a.y-b.y);
   const seen=new Set();
+  const bgAlpha=e=>{
+    const c=getComputedStyle(e),m=c.backgroundColor.match(/rgba?\(([^)]+)\)/);
+    if(!m)return 0;
+    const parts=m[1].split(',');
+    return parts.length>3?parseFloat(parts[3]):1;
+  };
   for(let i=0;i<allR.length;i++){
     for(let j=i+1;j<allR.length;j++){
       if(allR[j].y-allR[i].y>40)break;
@@ -126,12 +179,30 @@ function AUDIT(){
       const ox=Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x);
       const oy=Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y);
       if(ox>Math.min(a.w,b.w)*0.35&&oy>Math.min(a.h,b.h)*0.5){
+        // v3 遮挡豁免：矩形重叠只是几何事实。对 a/b 双方分别判定「重叠中心点处是否可见」——
+        // 若任一方被上层不透明元素盖住（弹层遮背景文字、居中覆盖层），下层文字本就不可见，
+        // 不构成可见冲突；双方都可见（真实并列重叠）才报。
+        let conflict=true;
+        try{
+          const cx=(Math.max(a.x,b.x)+Math.min(a.x+a.w,b.x+b.w))/2;
+          const cy=(Math.max(a.y,b.y)+Math.min(a.y+a.h,b.y+b.h))/2;
+          const st=document.elementsFromPoint(cx,cy);
+          const visibleAt=owner=>{
+            const i=st.findIndex(e=>e===owner||owner.contains(e)||e.contains(owner));
+            if(i<0)return false;
+            return !st.slice(0,i).some(e=>{const c=getComputedStyle(e);return bgAlpha(e)>=0.9&&parseFloat(c.opacity)>=0.5;});
+          };
+          if(!(visibleAt(a.owner)&&visibleAt(b.owner)))conflict=false;
+        }catch(e){}
+        if(!conflict)continue;
         const idOf=el=>String(el.tagName).toLowerCase()+(el.id?'#'+el.id:'')+(el.className?'.'+String(el.className).split(' ')[0]:'');
         const k=[a.t,b.t,a.y|0,b.y|0].join('|');
         if(seen.has(k))continue;seen.add(k);
-        out.overlap.push({a:idOf(a.owner)+'|'+a.t.slice(0,14),b:idOf(b.owner)+'|'+b.t.slice(0,14),ox:+ox.toFixed(1),oy:+oy.toFixed(1),y1:a.y|0,y2:b.y|0});
+        out.overlap.push({sev:'warn',a:idOf(a.owner)+'|'+a.t.slice(0,14),b:idOf(b.owner)+'|'+b.t.slice(0,14),ox:+ox.toFixed(1),oy:+oy.toFixed(1),y1:a.y|0,y2:b.y|0});
       }
     }
   }
+  const clipBlocked=out.clip.filter(x=>x.sev==='blocked').length;
+  out.counts={blocked:(out.overflowX>0?1:0)+clipBlocked,warn:out.tight.length+out.overlap.length+out.wrapped.length+(out.clip.length-clipBlocked)};
   return out;
 }

@@ -1,75 +1,125 @@
 #!/usr/bin/env bash
-# 细节审查矩阵运行器 — 对同一页面跑多个状态档位，每个档位输出四类检测结果。
+# audit-matrix.sh — 档位矩阵运行器（面向真实前端应用）
+#
+# 在真实浏览器（CDP，见 audit-runner.mjs）中打开目标页面，按「状态组合 × 视口 ×
+# reduced-transparency 两态」生成矩阵逐档检查，汇总阻断/警告计数与页面错误。
 #
 # 用法:
-#   ./audit-matrix.sh page.html                       # 只跑页面原始状态
-#   ./audit-matrix.sh page.html s1.js s2.js s3.js     # 每个 state 文件是一段 JS
+#   ./audit-matrix.sh <url|file> [选项]
 #
-# state 文件内容 = 页面 load 后注入执行的 JS（用于切换字号/主题/动效档位），如:
-#   echo 'for(let i=0;i<5;i++)document.getElementById("dtPlus").click()' > dt15.js
+#   --viewport 1440x900        视口（可多次，默认 1440x900）
+#   --dim "a.js,b.js"          一个状态维度（可多次；维度间取笛卡尔积，维度内取并集档位）
+#   --rm both|reduce|no-preference|off   默认 both（两态都跑）；off 用浏览器默认
+#   --timeout 30000            单档导航超时 ms
+#
+# 示例（真实应用 URL + 字号 × 主题矩阵）:
+#   ./audit-matrix.sh http://localhost:5173/workbench \
+#     --dim "dt100.js,dt150.js,dt200.js" --dim "light.js,dark.js"
+#
+# 状态文件内容 = 页面稳定前注入执行的 JS（切换字号/主题/数据状态），如:
+#   echo 'for(let i=0;i<5;i++)document.getElementById("dtPlus").click()' > dt150.js
 #   echo 'document.documentElement.dataset.theme="dark"'                  > dark.js
-#   echo 'if(typeof setRM==="function")setRM(true)'                       > rm.js
 #
-# 验收要求（jeremy-design 交付前强制）: 至少覆盖
-#   字号 100% / 150% / 200%（页面档位越多越好）、明暗两种外观 × reduced-transparency。
-# 全部档位四类检测为 0 才可判定通过；任一轮修复后必须重跑全部档位（防止修一个引入另一个）。
-#
-# 原理: headless Chrome 注入 detail-audit.js → 等待状态 JS 生效后读取 AUDIT()
-#       → document.title 回传 JSON → grep 提取。
-# 依赖: python3 + Google Chrome（可用 $CHROME 覆盖路径）。
+# 退出码: 0=全绿；1=检出阻断问题（clip/水平溢出）；2=执行失败（页面打不开/空白/页面报错/AUDIT 失败）
+# 注: warn 级（疑似重叠/行高偏紧/短行孤字）不判失败，需逐项人工复核后处置（见 references/detail-audit.md）。
+set -u
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RUNNER="$SCRIPT_DIR/audit-runner.mjs"
+AUDIT="$SCRIPT_DIR/detail-audit.js"
 
-set -e
-DIR="$(cd "$(dirname "$0")" && pwd)"
-CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
-[ -x "$CHROME" ] || CHROME="$(command -v google-chrome || command -v chromium || echo "$CHROME")"
+usage(){ awk 'NR>1 && /^#/{sub(/^# ?/,"");print;next} NR>1{exit}' "$0"; }
 
-if [ $# -lt 1 ]; then echo "用法: $0 page.html [state1.js ...]"; exit 2; fi
-PAGE="$1"; shift
+TARGET=""; declare -a VIEWPORTS=() DIMS=()
+RM_LIST=("reduce" "no-preference"); TIMEOUT=30000
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --viewport) VIEWPORTS+=("$2"); shift 2;;
+    --dim)      DIMS+=("$2"); shift 2;;
+    --rm)       case "$2" in
+                  both) RM_LIST=("reduce" "no-preference");;
+                  off)  RM_LIST=("");;
+                  *)    RM_LIST=(${2//,/ });;
+                esac; shift 2;;
+    --timeout)  TIMEOUT="$2"; shift 2;;
+    -h|--help)  usage; exit 0;;
+    -*)         echo "未知选项: $1" >&2; usage; exit 2;;
+    *)          TARGET="$1"; shift;;
+  esac
+done
+[ -z "$TARGET" ] && { usage; exit 2; }
+[ ${#VIEWPORTS[@]} -eq 0 ] && VIEWPORTS=("1440x900")
 
-TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
-
-# 审计副本: headless 无法模拟 prefers-reduced-transparency，把该媒体查询强制激活，
-# 让检测能覆盖 RM 降级分支（只改副本，不动原文件）
-python3 - "$PAGE" "$DIR/detail-audit.js" "$TMP" <<'PY'
-import sys
-page, audit, tmp = sys.argv[1], sys.argv[2], sys.argv[3]
-src = open(page, encoding='utf-8').read()
-src = src.replace('@media (prefers-reduced-transparency:reduce){', '@media (min-width:1px){')
-open(tmp+'/base.html', 'w', encoding='utf-8').write(src)
-open(tmp+'/audit.js', 'w', encoding='utf-8').write(open(audit, encoding='utf-8').read())
-PY
-
-run_state() {  # $1 = 名称  $2 = 状态 JS
-  python3 - "$TMP" "$2" "$1" <<'PY'
-import sys
-tmp, state, name = sys.argv[1], sys.argv[2], sys.argv[3]
-src = open(tmp+'/base.html', encoding='utf-8').read()
-audit = open(tmp+'/audit.js', encoding='utf-8').read()
-inj = ('<script>' + audit + '''
-addEventListener('load',()=>{
- setTimeout(()=>{''' + state + '''},400);
- setTimeout(()=>{const a=AUDIT();
-   document.title='RESULT:'+JSON.stringify({o:a.overflowX,t:a.tight.length,ov:a.overlap.length,w:a.wrapped.length,
-     detail:{tight:a.tight.slice(0,3),overlap:a.overlap.slice(0,3),wrapped:a.wrapped.slice(0,5)}});},2400);
-});
-</script></body>''')
-open(tmp+'/'+name+'.html', 'w', encoding='utf-8').write(src.replace('</body>', inj))
-PY
-  local out
-  out=$("$CHROME" --headless=new --disable-gpu --dump-dom --window-size=1440,2000 \
-        --virtual-time-budget=40000 "file://$TMP/$1.html" 2>/dev/null | grep -o 'RESULT:{.*}' | head -c 1500)
-  if [ -z "$out" ]; then echo "── $1  !! 无法提取结果（页面未加载/AUDIT 未定义/超时）"; return 1; fi
-  echo "── $1  ${out#RESULT:}"
-}
-
-FAIL=0
-if [ $# -eq 0 ]; then
-  run_state "default" "" || FAIL=1
-else
-  for S in "$@"; do
-    run_state "$(basename "$S" .js)" "$(cat "$S")" || FAIL=1
+# 状态组合 = 各维度的笛卡尔积（--dim "a.js,b.js" --dim "c.js" → a+c、b+c）
+declare -a COMBOS=("")
+for dim in ${DIMS[@]+"${DIMS[@]}"}; do
+  IFS=',' read -ra items <<< "$dim"
+  declare -a next=()
+  for c in "${COMBOS[@]}"; do
+    for it in "${items[@]}"; do
+      if [ -z "$c" ]; then next+=("$it"); else next+=("$c,$it"); fi
+    done
   done
+  COMBOS=("${next[@]}")
+done
+
+echo "目标: $TARGET"
+echo "视口: ${VIEWPORTS[*]} | RM: ${RM_LIST[*]} | 状态组合: ${#COMBOS[@]}"
+printf '%.0s─' {1..64}; echo
+
+worst=0; total_blocked=0; total_warn=0; total_fail=0; idx=0
+for vp in "${VIEWPORTS[@]}"; do
+  for rm in "${RM_LIST[@]}"; do
+    for combo in "${COMBOS[@]}"; do
+      idx=$((idx+1))
+      declare -a rargs=("--target" "$TARGET" "--audit" "$AUDIT" "--viewport" "$vp" "--timeout" "$TIMEOUT")
+      [ -n "$rm" ] && rargs+=("--rm" "$rm")
+      label=""
+      if [ -n "$combo" ]; then
+        IFS=',' read -ra fs <<< "$combo"
+        for f in "${fs[@]}"; do rargs+=("--state" "$f"); label+="$(basename "$f" .js)+"; done
+        label="${label%+}"
+      else
+        label="(无状态)"
+      fi
+      rm_label="${rm:-默认}"
+      echo "[$idx] $label | $vp | rm=$rm_label"
+      out="$(node "$RUNNER" "${rargs[@]}" 2>/dev/null)"
+      rcode=$?
+      if [ $rcode -eq 2 ] || [ -z "$out" ]; then
+        echo "    ✗ 执行失败（运行器退出码 $rcode）"; echo "$out" | head -c 300
+        total_fail=$((total_fail+1)); worst=2; continue
+      fi
+      echo "$out" | python3 -c '
+import json,sys
+d=json.load(sys.stdin)
+if not d.get("ok"):   print("    ✗ 执行失败: "+str(d.get("fail","")));            sys.exit(2)
+if d.get("blank"):    print("    ✗ 页面空白");                                    sys.exit(2)
+if d.get("errors"):   print("    ✗ 页面错误: "+"; ".join(d["errors"])[:200]);      sys.exit(2)
+r=d["result"]; c=r["counts"]
+print("    blocked="+str(c["blocked"])+"  warn="+str(c["warn"]))
+if r["overflowX"]>0: print("    ✗ 水平溢出 "+str(r["overflowX"])+"px")
+for x in r["clip"][:6]:    print("    "+("✗" if x["sev"]=="blocked" else "⚠")+" 裁切 ["+x["t"]+"] ← "+x["cutter"]+" (可见比"+str(x["ratio"])+")")
+for x in r["overlap"][:5]: print("    ⚠ 重叠 "+x["a"]+" × "+x["b"])
+for x in r["wrapped"][:5]: print("    ⚠ 短行 "+x["t"]+" 每行字数"+str(x["perLine"]))
+for x in r["tight"][:5]:   print("    ⚠ 行高 "+x["t"]+" ("+str(x["lh"])+"/"+str(x["fs"])+")")
+sys.exit(1 if c["blocked"] else 0)
+'
+      pcode=$?
+      case $pcode in
+        2) total_fail=$((total_fail+1)); [ $worst -lt 2 ] && worst=2;;
+        1) total_blocked=$((total_blocked+1)); [ $worst -lt 1 ] && worst=1;;
+      esac
+    done
+  done
+done
+
+printf '%.0s─' {1..64}; echo
+echo "汇总: $idx 档 | 阻断档位 $total_blocked | 执行失败 $total_fail"
+if [ $worst -eq 0 ]; then
+  echo "结果: 全绿（warn 级如有，需逐项人工复核后处置）"
+elif [ $worst -ge 2 ]; then
+  echo "结果: 存在执行失败 —— 检查无法成立，先修复再重跑全部档位"
+else
+  echo "结果: 检出阻断问题 —— 修复后必须重跑全部档位"
 fi
-echo ""
-if [ "$FAIL" -eq 0 ]; then echo "矩阵运行完成。注意: 仅当每个档位 o/t/ov/w 均为 0 且明细为空才判定通过。"
-else echo "矩阵运行结束但有档位失败（见上）。"; exit 1; fi
+exit $worst

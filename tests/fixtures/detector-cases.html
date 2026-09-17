@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>检测器正反例（skill 自身回归样例）</title>
+<style>
+  body{margin:0;padding:24px;font:16px/1.6 -apple-system,"PingFang SC",sans-serif;background:#fff;color:#111}
+  section{padding:14px 0}
+  .case{font-size:12px;color:#666;margin-bottom:6px}
+  .probe{position:relative;display:block}
+</style>
+</head>
+<body>
+
+<!-- 反例（检测器不应报出）：来自外部审查的浏览器实测用例 -->
+<section id="c1-en-wrap">
+  <div class="case">用例1 英文在空格处正常换行 —— 期望：不在 wrapped</div>
+  <div style="width:90px">Hello to the world of design handbook</div>
+</section>
+
+<section id="c2-ancestor-opacity">
+  <div class="case">用例2 祖先 opacity:0 的内部文字 —— 期望：完全不参与检测</div>
+  <div style="opacity:0"><div style="width:70px">中文测试文本换行检查短行</div></div>
+</section>
+
+<section id="c3-covered-overlap">
+  <div class="case">用例3 不透明弹层盖住背景文字 —— 期望：不在 overlap</div>
+  <div class="probe" style="width:260px;height:44px">
+    <div style="width:240px">背景说明文字被弹层遮挡属正常</div>
+    <div style="position:absolute;inset:0;background:#fff;display:flex;align-items:center;justify-content:center">弹层内容</div>
+  </div>
+</section>
+
+<!-- 正例（检测器应报出）：此前会漏报的阻断问题 -->
+<section id="c4-clipped">
+  <div class="case">用例4 文字被 height:5px;overflow:hidden 裁掉 —— 期望：clip 报出（blocked）</div>
+  <div style="height:5px;overflow:hidden">重要提示文字内容被容器裁掉了</div>
+</section>
+
+<section id="c7-accordion">
+  <div class="case">用例7 负例：accordion 收起态（高度 0 + 有展开入口）—— 期望：不在 clip</div>
+  <div style="height:0;overflow:hidden">收起面板里的说明文字不该被当作内容裁切</div>
+</section>
+
+<section id="c8-anim-stage">
+  <div class="case">用例8 负例：动效舞台（transform 位移元素被舞台框住）—— 期望：不在 clip</div>
+  <div style="position:relative;width:300px;height:80px;overflow:hidden;background:#f2f2f7;border-radius:12px">
+    <div id="ball" style="position:absolute;top:50%;left:0;width:48px;height:48px;margin-top:-24px;border-radius:50%;background:#007aff;display:flex;align-items:center;justify-content:center;color:#fff;will-change:transform;transform:translate(280px,60px)">球</div>
+  </div>
+</section>
+
+<section id="c5-real-overlap">
+  <div class="case">用例5 正例：无遮挡层时的真实文本重叠 —— 期望：overlap 报出</div>
+  <div class="probe" style="width:260px;height:36px">
+    <div style="position:absolute;left:0;top:0">真实重叠第一行文字</div>
+    <div style="position:absolute;left:24px;top:2px">真实重叠第二行文字</div>
+  </div>
+</section>
+
+<section id="c6-cjk-orphan">
+  <div class="case">用例6 正例：CJK 短行孤字 —— 期望：wrapped 报出</div>
+  <div style="width:150px">设置页面常规选项与更多</div>
+</section>
+
+</body>
+</html>

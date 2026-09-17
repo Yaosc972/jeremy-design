@@ -49,9 +49,11 @@ Claude 会在设计类任务中自动调用；也可显式触发：`做个 iOS �
 | `references/platforms.md` | 各平台差异 |
 | `references/design-principles.md` | 设计总原则、包容性 |
 | `references/hig-index-all-pages.md` | 172 页 HIG 原文 URL 全索引 |
-| `references/detail-audit.md` | **交付前细节审查（强制）**：四类检测定义、档位验收矩阵、修复决策树 |
-| `scripts/detail-audit.js` | 注入式细节检测器（水平溢出 / 字形挤压 / 文本重叠 / CJK 拆词折行） |
-| `scripts/audit-matrix.sh` | 档位矩阵运行器：多状态自动跑检测并汇总（headless） |
+| `references/detail-audit.md` | **交付前细节审查（强制）**：五类检测与 severity、档位验收矩阵、分级验收口径、修复决策树 |
+| `scripts/detail-audit.js` | 注入式细节检测器（页面水平溢出 / 文字裁切 / 行高偏紧 / 文本重叠 / CJK 折行异常；severity 分级 + 已知例外豁免） |
+| `scripts/audit-runner.mjs` | 单档运行器：真实浏览器（CDP）打开 URL 或本地文件，注入状态后输出单行 JSON（支持截图目视复核） |
+| `scripts/audit-matrix.sh` | 档位矩阵运行器：状态 × 视口 × reduced-transparency 全组合跑检测并汇总（headless） |
+| `tests/fixtures/` | skill 回归样例：检测器用例页（含已知误报豁免场景） |
 
 ## 一个例子：触控目标
 

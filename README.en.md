@@ -51,9 +51,11 @@ Claude invokes it automatically for design tasks; you can also trigger it explic
 | `references/platforms.md` | Per-platform differences |
 | `references/design-principles.md` | Design principles, inclusion |
 | `references/hig-index-all-pages.md` | Full URL index of all 172 HIG pages |
-| `references/detail-audit.md` | **Pre-delivery detail audit (mandatory)**: four detection classes, breakpoint acceptance matrix, fix decision tree |
-| `scripts/detail-audit.js` | Injectable detail detector (horizontal overflow / squeezed line-height / text overlap / CJK word splitting) |
-| `scripts/audit-matrix.sh` | Breakpoint matrix runner: runs the detector across multiple states and summarizes (headless) |
+| `references/detail-audit.md` | **Pre-delivery detail audit (mandatory)**: five detection classes with severity, breakpoint acceptance matrix, graded acceptance, fix decision tree |
+| `scripts/detail-audit.js` | Injectable detail detector (page overflow / text clipping / tight line-height / text overlap / CJK line-breaking anomalies; severity grading with known-exception exemptions) |
+| `scripts/audit-runner.mjs` | Single-state runner: real browser (CDP) opens a URL or local file, injects state, emits one-line JSON (screenshot support for visual review) |
+| `scripts/audit-matrix.sh` | State matrix runner: state × viewport × reduced-transparency combinations, summarized (headless) |
+| `tests/fixtures/` | Skill regression fixtures: detector test cases (including known false-positive exemptions) |
 
 ## One example: touch targets
 

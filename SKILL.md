@@ -33,7 +33,7 @@ description: Jeremy design — 自建 Apple 风格前端设计规范 skill（原
 | 设计总原则、包容性 | `design-principles.md` |
 | 查任何 HIG 页面的原文 URL（172 页全索引） | `hig-index-all-pages.md` |
 | 中文排版、断行、Web 适配 | `web-adaptation.md`（§4 是断行对策） |
-| **交付前细节审查（强制）**：折行/重叠/溢出/挤字四类检测 + 档位矩阵 | `detail-audit.md` + `scripts/audit-matrix.sh` |
+| **交付前细节审查**（每任务执行，分级验收） | `detail-audit.md` + `scripts/audit-matrix.sh` |
 
 ## 核心规范速查（数值均对照原文验证，来源见标记）
 
@@ -50,7 +50,7 @@ description: Jeremy design — 自建 Apple 风格前端设计规范 skill（原
 - Web 近似写法：`-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif`
 - 避免 Ultralight/Thin/Light 字重（小字难读）；用 Regular/Medium/Semibold/Bold
 - 用字号+字重+颜色做层级，少用多种 typeface；iOS 风格不依赖斜体
-- **中文断行**（Web，`web-adaptation.md` §4）：短 UI 文案 `white-space:nowrap` 不拆词（flex 行内文字最易被压拆）；正文段落 `text-wrap:pretty` 防孤字行；中文内嵌英文专名（App Icon、HIG 原文）与数值+单位（`44&nbsp;pt`）用 nowrap 保护；**禁止对文案用 `word-break:break-all`**
+- **中文断行**（Web，`web-adaptation.md` §4）：短且长度受控的按钮/状态标签可优先单行；表头、表单标签、说明文案允许合理换行；只有真正需要绑定的短语、数值与单位（`44&nbsp;pt`）才用局部 nowrap 保护；空间不足时优先让容器重排，而不是先禁止文字换行；正文段落 `text-wrap:pretty` 防孤字行；应急断行用 `overflow-wrap:anywhere`（字符串无其他断点时的最后手段，与 `word-break:break-all` 不是同一种行为）
 - 必须支持 Dynamic Type（字号可缩放）：布局要适应字号变化，不能截断关键信息
 
 ### 颜色与材质
@@ -65,17 +65,17 @@ description: Jeremy design — 自建 Apple 风格前端设计规范 skill（原
 
 ## 使用规则
 
-0. **执行流程**（每次任务走一遍）：确认运行环境与目标平台（原生 or Web、何平台、何输入方式）→ 按路由表读任务相关 reference → 区分来源标记（`HIG` / `APPLE-EXAMPLE` / `WEB-ADAPTATION` / `PROJECT-DEFAULT`），不得混用原生 point 与 CSS 单位 → 实现正常、交互、异常三态 → 验证无障碍（对比度、字号缩放、reduced-motion、键盘/读屏）、布局与动效（动画中断不跳变）→ **交付前强制细节审查矩阵**：`scripts/audit-matrix.sh` 跑字号 100%/150%/200% × 明暗外观，四类检测（水平溢出/字形挤压/文本重叠/CJK 拆词折行）全为 0 才算过；每轮修复后复跑全部档位，改过布局的元素截图目视复核。注意"特定档位窗口"型事故真实存在（只在 180% 拆、170%/200% 正常），单档位通过不构成交付依据 → 向用户报告**已验证项与未验证项**；未经实际验证，不声称实现"已符合 HIG"
+0. **执行流程**（每次任务走一遍）：先判断**任务类型**（新建 / 改版 / 局部修复 / 参考复刻）与**产品类型**（内容展示网站 / 工作台 / 移动 Web）——局部修复优先保留原有结构，参考复刻优先忠实于参考，只有新建或明确改版才主动建立整套视觉方案，不要所有任务都从"重新设计一遍"开始 → 确认运行环境与输入方式（原生 or Web、目标浏览器、鼠标/触控/键盘）→ 按路由表读任务相关 reference → 区分来源标记（`HIG` / `APPLE-EXAMPLE` / `WEB-ADAPTATION` / `PROJECT-DEFAULT`），不得混用原生 point 与 CSS 单位 → 实现正常、交互、异常三态 → 验证无障碍（对比度、字号缩放、reduced-motion、键盘/读屏）、布局与动效（动画中断不跳变）→ **交付前细节审查**（`scripts/audit-matrix.sh` 按实际状态矩阵运行），验收分三级：**阻断问题清零**（关键内容不可读、主要操作不可达、布局严重溢出、运行错误）；**警告逐项复核并记录处置**（疑似重叠、行高偏紧、短行孤字、轻微切边）；**已知例外备案**（合法遮挡、允许滚动的数据区、有完整内容入口的截断）——阻断清零即通过，不以消除所有启发式告警为目标修改正常布局。修复优先解决布局根因（固定高度、最小宽度、不可收缩子项、不合理的单行限制），再复跑矩阵确认其他状态没有退化 → 向用户报告**已验证项与未验证项**；未经实际验证，不声称实现"已符合 HIG"
 1. **设计前**：按上表读对应 reference 文件（通常 1-2 个），不要跳过直接凭印象写样式；Web 项目必读 `web-adaptation.md`
 2. **数值必须来自 reference**：字号、尺寸、对比度阈值以文件内速查表为准；文件里没有的数值不要编造，标注"HIG 未规定"并给出 `PROJECT-DEFAULT` 默认值
 3. **平台一致性**：只做一种平台风格时按 `platforms.md` 对应节；混搭风格先声明目标平台
 4. **溯源**：每条规范在 reference 文件头部有原文 URL；172 页全索引在 `hig-index-all-pages.md`
 5. **时效**：快照为 2026-09；Apple 每年 WWDC 后更新（Liquid Glass 是 iOS 26 / 2025 引入），关键项目建议对照原文确认
-6. **适用范围**：本 skill 只管 Apple 平台口径。非 Apple 平台的通用 web 审美任务（反 AI-slop、大胆自定义风格）**不适用本 skill**——不要对非 Apple 项目强套 HIG 规则。若本机装有 `frontend-design` skill 则调用之；未安装时按同源原则自行执行：动手前先定一个明确的审美方向（Purpose/Tone/Constraints/Differentiation），避免千篇一律的默认样式（系统字体堆叠、紫色渐变、模板布局）
+6. **适用范围**：Jeremy Design 面向网站、Web 应用、工作台和移动 Web 的设计与实现，以 Apple 的清晰层级、内容优先、克制材质和一致交互作为设计方向。**不要求用户运行 Apple 操作系统**——Windows 上的工作台同样适用本 skill（但不需要被做成放大的 iOS 设置页）。实现以目标浏览器、输入方式、无障碍要求和项目现有设计系统为约束；Apple 原生 API 与专属平台尺寸不直接套用于 Web。无论何种任务，动手前先定一个明确的审美方向（Purpose/Tone/Constraints/Differentiation），避免千篇一律的默认样式（系统字体堆叠、紫色渐变、模板布局）
 
 ## 常见错误（来自 HIG 原文的反模式 + 本 skill 的实现守则）
 
-- ❌ 给导航/工具栏/tab bar 等**功能层**控件垫实色背景并硬画分割线（功能层应用 **Liquid Glass 材质 + scroll edge effect** 浮于内容之上）。但内容层的卡片、分组面板、表单容器本来就该用实色/标准材质——不是所有"有背景的控件"都是反模式
+- ⚠️ **材质别走极端**（Web 口径已放宽）：材质应帮助区分层级——实色、边框和轻微阴影均可作为有效手段；玻璃效果按场景选择，**不作为 Apple 风格的必要条件**。Apple 原生口径下功能层（导航/工具栏/tab bar）用 Liquid Glass 材质 + scroll edge effect 浮于内容之上；Web 端 `backdrop-filter` 只是视觉近似（`WEB-ADAPTATION`），可读性、Reduce Transparency 降级与浏览器兼容优先于玻璃效果。工作台优先保证内容和数据可读，而不是优先展示材质。内容层的卡片、分组面板、表单容器用实色/标准材质本就正确
 - ❌ 按钮可点热区低于 44×44 pt（visionOS ≥60×60 pt）。注意：Accessibility 表的 28×28 pt 是通用控件最小尺寸条目，**不能**解释为按钮热区可做到 28；网页自身的 WCAG 2.2 AA 目标尺寸条款（24×24 CSS px，含间距等例外）是另一套标准，勿与 Apple 数值混成一个"最低值"
 - ❌ 用 CSS 单位换算判断 Apple 规范（如"32 CSS px ≈ 24 CSS pt，低于 28pt"）——CSS 的 `pt` 不是 Apple 的逻辑 point，两者不能机械换算。原生尺寸用逻辑 point，Web 实现用 CSS px/rem 并明确记录适配策略；Web 端把 44×44 CSS px 作为本 skill 默认点击区域（`PROJECT-DEFAULT`，非 Apple 官方换算结果）
 - ❌ 硬编码颜色导致 Dark Mode 失效（应语义色）
@@ -84,5 +84,5 @@ description: Jeremy design — 自建 Apple 风格前端设计规范 skill（原
 - ❌ 按设备型号/横竖屏决定布局（应按 size class / 可用空间决定）
 - ❌ 把演讲示例参数升格为通用规范（如"0.4 用于大距离移动"）、把 Apple 阻尼比 ζ 直接写进 Motion 的 `damping` 参数（两者不是同一个量）、宣称"大字必负字距"（SF Pro 24pt 起转正，方向取决于字体家族）
 - ❌ 用 emoji 当 UI 图标（彩色表情符号无法对齐文字字重、无法单色适配明暗外观与 Reduce Transparency，跨平台渲染不一致）→ ✅ UI 图标一律用矢量符号（SF Symbols 或近似 SVG），与相邻文本同色同字重；emoji 只可作内容、不作界面图标。本条为本 skill 工程守则（`PROJECT-DEFAULT`）：HIG 无"禁用 emoji"明文，依据 icons-symbols.md 的单色渲染与字重对齐原则推导。Web 项目取图标的默认库与集成方式见 `icons-symbols.md` §3（默认 Lucide）
-- ❌ 交前端页面前不跑细节审查矩阵就宣称完成：字号档位放大后必有固定 px 尺寸（行高/容器高/最小宽度）挤字、孤字、溢出的事故，且常为"特定档位窗口"型（只在 180% 拆、170%/200% 正常）——单档位肉眼通过不构成交付依据。交付前跑 `scripts/audit-matrix.sh`（100%/150%/200% × 明暗），四类检测全 0 才可声称完成；每轮修复后复跑全部档位
-- ❌ 为通过某档位检测而过度修复、波及正常档位：修法要精确命中出事档位（如加只作用于该档位的类/媒体查询），不要顺手改动其他档位下原本正确的布局（实测过把 1.5x 原本正常的六列色卡改成 3 列的事故）。改过布局的元素截图目视复核观感是否退化
+- ❌ 交前端页面前不跑细节审查就宣称完成：字号放大/重排时的常见风险是固定 px 尺寸（行高/容器高/最小宽度）、不可收缩子项与不合理的单行限制引发挤字、孤字、溢出，且可能是"特定档位窗口"型（只在某些档位出现）——单档位肉眼通过不构成交付依据。交付前按实际状态矩阵跑 `scripts/audit-matrix.sh`；验收按**阻断清零 + 警告逐项复核**（分级口径见 `detail-audit.md`），每轮修复后复跑矩阵确认其他状态无退化
+- ❌ 为通过某档位检测而过度修复、波及正常状态：先查固定高度、最小宽度、不可收缩子项与单行限制，优先以布局根因修复解决，确有必要才设特定布局切换点（如只作用于某档位的类/媒体查询）；不要顺手改动其他状态下原本正确的布局（实测过把 1.5x 原本正常的六列色卡改成 3 列的事故）。改过布局的元素截图目视复核观感是否退化
