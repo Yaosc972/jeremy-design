@@ -9,7 +9,7 @@
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { writeFileSync, rmSync } from 'node:fs';
+import { writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -89,5 +89,33 @@ writeFileSync(freezeFile, 'window.requestAnimationFrame=()=>0;');
 failCase('rAF 被冻结时稳定等待靠兜底完成（不永久挂起）→ exit 0', ['--state', freezeFile], 0);
 rmSync(freezeFile, { force: true });
 
-console.log(`\n${bad ? `回归失败：共 ${bad} 项不符期望` : `回归通过：检测器 ${cases.length} 项 + 运行器失败路径 7 项全部符合期望`}`);
+// ── 三、工具面（视觉验收链路：--shot-full 与对照片生成）────────────
+console.log('\n  ── 工具面（视觉验收链路）──');
+{
+  const png = join(tmpdir(), `jd-full-${process.pid}.png`);
+  const rr = run(['--shot', png, '--shot-full']);
+  let dd = null; try { dd = JSON.parse(rr.stdout); } catch {}
+  let pngOk = false; try { pngOk = readFileSync(png).length > 10000; } catch {}
+  check('--shot-full 全页截图（高度超过视口、JSON 附 shot 尺寸）→ exit 0',
+    rr.status === 0 && dd?.shot?.full === true && dd?.shot?.h > 900 && pngOk);
+  rmSync(png, { force: true });
+}
+{
+  const outH = join(tmpdir(), `vr-smoke-${process.pid}.html`);
+  const rv = spawnSync(process.execPath, [join(root, 'scripts/visual-review.mjs'),
+    '--base', join(here, 'fixtures/detector-cases.html'), '--test', join(here, 'fixtures/detector-cases.html'),
+    '--out', outH], { encoding: 'utf8' });
+  let okRv = rv.status === 0;
+  if (okRv) {
+    try {
+      const h = readFileSync(outH, 'utf8');
+      okRv = h.includes('层次保留') && h.includes('语义权重') && h.includes('_vr-assets/') && h.includes('<img src="_vr-assets/');
+    } catch { okRv = false; }
+  }
+  check('visual-review 对照片生成（含双截图与 5 检查点）→ exit 0', okRv);
+  rmSync(outH, { force: true });
+  rmSync(join(dirname(outH), '_vr-assets'), { force: true, recursive: true });
+}
+
+console.log(`\n${bad ? `回归失败：共 ${bad} 项不符期望` : `回归通过：检测器 ${cases.length} 项 + 运行器失败路径 7 项 + 工具面 2 项全部符合期望`}`);
 process.exit(bad ? 1 : 0);

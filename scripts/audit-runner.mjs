@@ -8,7 +8,7 @@
 //   node audit-runner.mjs --target <url|file> --audit <detail-audit.js> \
 //     [--viewport 1440x900] [--rm reduce|no-preference] [--state <state.js>]... \
 //     [--ready <js-expr>] [--assert <js-expr>] \
-//     [--timeout 30000] [--deadline 120000] [--shot <out.png>]
+//     [--timeout 30000] [--deadline 120000] [--shot <out.png>] [--shot-at <y>] [--shot-full]
 //
 // 前置条件链（任一不满足即执行失败，绝不继续得出"通过"）：
 //   导航无 errorText → load 在 --timeout 内触发 → 实际页面非浏览器错误页 →
@@ -213,7 +213,9 @@ async function main() {
 
   const errors = collectErrors();
 
-  // 截图（目视复核用）：当前视口；--shot-at <y> 先滚动到指定位置
+  // 截图（目视复核用）：默认当前视口；--shot-at <y> 先滚动到指定位置；
+  // --shot-full 全页截图（captureBeyondViewport，长页面逐类型目视对比用）
+  let shotMeta = null;
   const shotPath = opt('shot', null);
   if (shotPath) {
     const atY = opt('shot-at', null);
@@ -221,8 +223,14 @@ async function main() {
       await send('Runtime.evaluate', { expression: `window.scrollTo(0,${Number(atY)})` }, sessionId);
       await send('Runtime.evaluate', { expression: 'new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))', awaitPromise: true }, sessionId);
     }
-    const shot = await send('Page.captureScreenshot', { format: 'png' }, sessionId);
-    if (shot.result?.data) writeFileSync(shotPath, Buffer.from(shot.result.data, 'base64'));
+    const full = args.includes('--shot-full');
+    const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: full }, sessionId);
+    if (shot.result?.data) {
+      const buf = Buffer.from(shot.result.data, 'base64');
+      writeFileSync(shotPath, buf);
+      // PNG IHDR：宽/高分别在第 16/20 字节（4 字节大端）
+      if (buf.length > 24) shotMeta = { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20), full };
+    }
   }
 
   // 注入检测器并取结果
@@ -235,7 +243,7 @@ async function main() {
   if (!v || v.ok !== true) {
     return finish(2, { ok: false, blank: null, errors, result: null, target: url, viewport: opt('viewport', '1440x900'), rm, fail: 'AUDIT 执行失败: ' + (v?.err || injected.result?.exceptionDetails?.text || '未知') });
   }
-  finish(0, { ok: true, blank: v.blank, errors, result: v.r, target: url, viewport: opt('viewport', '1440x900'), rm });
+  finish(0, { ok: true, blank: v.blank, errors, result: v.r, target: url, viewport: opt('viewport', '1440x900'), rm, shot: shotMeta });
 }
 
 main().catch(e => finish(2, { ok: false, blank: null, errors: [String(e.message || e)], result: null, target: url, viewport: opt('viewport', '1440x900'), rm, stage, fail: `运行器错误（阶段: ${stage}）` }));
