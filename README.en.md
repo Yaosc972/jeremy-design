@@ -1,91 +1,37 @@
 # Jeremy Design
 
-[English](README.en.md) | [简体中文](README.md)
+English | [简体中文](README.md)
 
-Apple Human Interface Guidelines (HIG) frontend design reference — a Claude Code / Claude Agent skill.
+A frontend design skill for Claude Code and Codex. It combines task-oriented HRAS enterprise workbench patterns with an on-demand Apple HIG reference library.
 
-It brings Apple's official HIG rules to frontend and UI design tasks. **All HIG rules and values are faithfully extracted from the official [developer.apple.com/design](https://developer.apple.com/design/human-interface-guidelines/) sources** (2026-09 snapshot), every value traceable to its origin — *exact values, not vibes*. On top of that sits a **separately labeled Web adaptation layer**: official guidance (`HIG`), Apple talks/examples (`APPLE-EXAMPLE`), browser engineering translation (`WEB-ADAPTATION`), and project defaults (`PROJECT-DEFAULT`) — four source types kept explicitly distinct. Coverage is a **curated summary of core topics**, not a wholesale excerpt of all 172 HIG pages (the full 172-page URL index lives in `references/hig-index-all-pages.md`).
+## Scope
 
-> Note: the reference documents (`references/*.md`) are written in Chinese. This English README describes the project; the full normative content is currently Chinese-only.
+Use [SKILL.md](SKILL.md) for routing and implementation guidance. Existing project design systems and explicit user choices take priority.
 
----
+- Module home: actionable entries, availability, rules/help and recent batches.
+- Batch review: scope controls, stage progress, records, exceptions and output actions.
+- Apple-style mobile UI: load platform references only when relevant.
+- Local fixes: preserve unrelated layout and verify the affected states.
 
-## Why this exists
-
-The HIG website is a SPA whose content hides behind a DocC JSON API and cannot be searched directly. Worse, the web is full of **misinformation** about Apple's design rules — the most widespread being the so-called "8pt grid", which the HIG never actually specifies. This project scrapes, parses, and organizes 172 HIG pages into searchable reference docs, with every value pinned to its original source.
-
-Coverage includes:
-
-- Per-platform sizes and touch targets (iOS / macOS / tvOS / visionOS / watchOS)
-- The complete Dynamic Type size table (1038 lines)
-- Semantic colors and Dark Mode
-- Materials and Liquid Glass (iOS 26 / 2025 design system)
-- Accessibility contrast thresholds (WCAG AA)
-- Controls, icons, platform differences
-- Web fluid-motion implementation parameters (springs, gestures, momentum projection, rubber-banding)
+[HRAS patterns](references/hras-workbench.md) document source revisions, two distinct compositions, paired colors, density, implementation snippets and counterexamples. These are adaptable patterns, not a universal template. No business records or brand assets are bundled.
 
 ## Install
 
+Choose one destination; inspect existing changes before updating an installed copy.
+
 ```bash
+# Claude Code
 git clone https://github.com/Yaosc972/jeremy-design.git ~/.claude/skills/jeremy-design
+# Or Codex
+git clone https://github.com/Yaosc972/jeremy-design.git ~/.codex/skills/jeremy-design
 ```
 
-Claude invokes it automatically for design tasks; you can also trigger it explicitly with phrases like `做个 iOS 风格设置页` (build an iOS-style settings page), `苹果设计规范` (Apple design rules), `44pt 触控目标` (44pt touch target).
+These commands install the remote default branch, not unpublished local changes. For local changes copy skill files while preserving destination Git metadata and personal edits.
 
-## File structure
+## Validation and sources
 
-| File | Contents |
-|---|---|
-| `SKILL.md` | Entry point: source taxonomy + routing table + core quick reference + workflow/acceptance checks |
-| `references/layout.md` | Layout, spacing, hierarchy, safe area |
-| `references/typography.md` | Type, sizes, Dynamic Type, SF Pro / New York |
-| `references/color-dark-mode.md` | Color, semantic colors, system palette, Dark Mode |
-| `references/materials.md` | Materials, blur, Liquid Glass |
-| `references/motion.md` | Motion, transitions, animation durations |
-| `references/fluid-motion-web.md` | Spring parameters, gesture dragging, velocity handoff, momentum projection, rubber-banding, reduced-motion |
-| `references/design-workflow.md` | **Task kickoff workflow**: five questions, three product modes, structure before visuals |
-| `patterns/workbench.md` | **Workbench pattern**: page- vs row-level actions, filters, bulk selection, list-detail context, number formatting, table vs data grid |
-| `patterns/mobile-web.md` | **Mobile web real environment**: visual viewport, soft keyboard, back button, input types, hover alternatives |
-| `references/web-adaptation.md` | **Native concepts → Web adaptation layer**: unit strategy, semantic color tokens, safe area, modal semantics, degradation and acceptance baselines |
-| `references/accessibility.md` | Contrast, touch targets, VoiceOver |
-| `references/interaction-feedback.md` | Feedback, haptics, loading, gestures |
-| `references/components-controls.md` | Buttons / dialogs / menus / toggles / sliders and other control specs |
-| `references/icons-symbols.md` | App icons, SF Symbols |
-| `references/platforms.md` | Per-platform differences |
-| `references/design-principles.md` | Design principles, inclusion |
-| `references/hig-index-all-pages.md` | Full URL index of all 172 HIG pages |
-| `references/web-tokens.md` | **Web design system**: three-layer tokens, spacing scale, information density decisions (boundaries of 44px), new vs existing projects |
-| `references/states-and-forms.md` | **States & business interactions**: six list states (incl. no-permission), save lifecycle, form validation and error association, simulation-boundary discipline |
-| `references/react-implementation.md` | React conventions: component reuse, stable keys, Effect cleanup, animation refs, lucide-react |
-| `references/detail-audit.md` | **Pre-delivery detail audit (mandatory)**: five detection classes with severity, breakpoint acceptance matrix, graded acceptance, fix decision tree |
-| `scripts/detail-audit.js` | Injectable detail detector (page overflow / text clipping / tight line-height / text overlap / CJK line-breaking anomalies; severity grading with known-exception exemptions) |
-| `scripts/audit-runner.mjs` | Single-state runner: real browser (CDP) opens a URL or local file, injects state, emits one-line JSON (screenshot support for visual review) |
-| `scripts/audit-matrix.sh` | State matrix runner: state × viewport × reduced-transparency combinations, summarized (headless) |
-| `tests/fixtures/` | Skill regression fixtures: detector test cases (including known false-positive exemptions) |
+See [validation guidance](references/detail-audit.md). Browser audit scripts are optional helpers; run `node tests/regression.mjs` after changing the audit tools (requires Node and Chrome). Static skill validation and geometry checks do not prove design quality. Evaluate routing with an enterprise review app, a narrow existing-UI fix, and an Apple-style mobile page.
 
-## One example: touch targets
+The Apple reference library retains its original 2026-09 snapshot label; this revision does not reverify every HIG value. Consult [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/) for current authoritative claims. Source labels distinguish observed HRAS patterns, HIG guidance, Apple examples, Web adaptations and adjustable project defaults.
 
-The common simplification online is "minimum 44×44pt". The HIG actually draws **two distinct distinctions**, covering three concepts (visualSize / hitRegion / spacing):
-
-- **Button hit region** ≥ 44×44 pt (visionOS ≥ 60×60 pt) — from the buttons page, a hard requirement for button hit regions
-- **Control default / minimum sizes**: iOS 44/28 · macOS 28/20 · tvOS 66/56 · visionOS 60/28 · watchOS 44/28 pt — the general controls table on the accessibility page
-
-44 is iOS's **default**, not its minimum; and the 28×28 pt entry in the accessibility table is a general-control minimum and **must not** be read as "a button hit region can be 28". On the web, this project uses 44×44 CSS px as the default hit area (`PROJECT-DEFAULT`, not an Apple conversion; CSS pt ≠ Apple logical point). See `references/accessibility.md` and `references/web-adaptation.md`.
-
-## Data source and updates
-
-The rules snapshot is **2026-09**. Apple updates the HIG after every WWDC (Liquid Glass arrived with iOS 26 / 2025), so for critical projects verify against the live docs.
-
-The re-scraping method is documented in `references/hig-index-all-pages.md`: the content endpoint is
-`https://developer.apple.com/tutorials/data/design/human-interface-guidelines/<topic>.json` (DocC JSON), and you must handle block types such as `tabNavigator` (the iOS Dynamic Type size table is split into tabs per size category).
-
-## Known trade-offs
-
-- The color palettes in the HIG are images and were not captured as text (and the HIG itself says not to hardcode system colors)
-- The tvOS grid diagram is an image and is not included
-
-## License
-
-MIT, see [LICENSE](LICENSE). `references/fluid-motion-web.md` is adapted from [emilkowalski/skills](https://github.com/emilkowalski/skills) (MIT, © Emil Kowalski); the license notice is preserved in LICENSE per MIT terms.
-
-Apple Human Interface Guidelines copyright belongs to Apple Inc.; this project is a **factual summary of its public technical specifications** (values, sizes, thresholds), not a reproduction of Apple's prose.
+MIT; see [LICENSE](LICENSE). Fluid motion references retain attribution to [emilkowalski/skills](https://github.com/emilkowalski/skills). Apple HIG belongs to Apple Inc.; this is not an official Apple product.

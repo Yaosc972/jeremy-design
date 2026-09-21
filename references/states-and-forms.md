@@ -1,6 +1,6 @@
 # 状态与业务交互（列表 / 保存 / 表单）
 
-> **性质**：`PROJECT-DEFAULT` 工程约定。SKILL.md 要求"实现正常、交互、异常三态"——本文件把这三类**按组件类型展开成具体状态清单**。控件本身的规范见 `components-controls.md`；无障碍关联见 `accessibility.md`。
+> **性质**：`PROJECT-DEFAULT` 工程约定。本文件把正常、交互、异常状态**按组件类型展开成具体状态清单**，按本次功能选择适用状态。控件本身的规范见 `components-controls.md`；无障碍关联见 `accessibility.md`。
 
 ## 0. 底线约束
 
