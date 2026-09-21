@@ -46,6 +46,7 @@ git clone https://github.com/Yaosc972/jeremy-design.git ~/.codex/skills/jeremy-d
 | [Web tokens](references/web-tokens.md) | 语义 token、密度与主题选择 |
 | [状态与表单](references/states-and-forms.md) | 加载、保存、错误与权限状态 |
 | [验证](references/detail-audit.md) | 根据影响选择检查，浏览器脚本为可选辅助 |
+| [成品自检](references/finished-ui-check.md) | 新建和改版共用的操作、检测、看图、修复与复测闭环 |
 | `scripts/`、`tests/` | 原有几何检测器、截图工具与回归用例 |
 
 ## 验证
@@ -53,6 +54,8 @@ git clone https://github.com/Yaosc972/jeremy-design.git ~/.codex/skills/jeremy-d
 修改审计脚本后运行 `node tests/regression.mjs`（需要可用 Node 和 Chrome，具体运行环境见脚本）。几何检测通过不代表视觉或业务通过；skill 入口校验也不代表已做生成效果 A/B 测试。
 
 补充回归：`python3 tests/matrix-contract.py` 检查矩阵退出码与参数；`node tests/visual-review-contract.mjs` 检查报告隔离、断言透传与评审保存（两者不启动浏览器）；`node tests/runner-errors.mjs` 检查浏览器运行器失败路径。
+
+`scripts/ui-self-check.js` 可注入当前浏览器，记录组件可见性、关闭、局部边界和焦点检查，视觉结论另行看图填写；不是自动修复器或强制执行钩子。用浏览器打开 `tests/ui-self-check.html`，查看 `window.selfCheckTests` 验证其失败路径和结果记录；测试中的模拟视觉记录不代表真实视觉验收。
 
 行为评估建议：不提 Apple，直接要求新工作台，检查是否仍采用共同基础；再尝试局部修复和明确其他品牌风格的任务，检查是否保持用户范围与品牌要求。改版另验证前后截图与状态契约。
 

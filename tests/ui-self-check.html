@@ -1,0 +1,65 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>UI self-check regression</title>
+<style>body{font:16px system-ui;padding:24px}#notice{position:relative;width:300px;padding:16px;border:1px solid #bbb}#outside{position:absolute;left:360px;top:0}#results{white-space:pre-wrap}</style>
+<h1>UI self-check regression</h1>
+<button id="trigger">Show notice</button><button id="background">Background</button>
+<div id="notice" hidden><span id="message">Saved</span><button id="close">Close</button><span id="outside">Overflow</span></div>
+<div id="dialog" hidden><input id="field" aria-label="Name"></div>
+<span class="duplicate">One</span><span class="duplicate">Two</span><pre id="results"></pre>
+<script src="../scripts/ui-self-check.js"></script>
+<script>
+const notice = document.querySelector('#notice');
+document.querySelector('#trigger').onclick = () => { notice.hidden = false; notice.classList.add('show'); };
+// Intentionally broken dismissal: the CSS still renders the element.
+document.querySelector('#close').onclick = () => notice.classList.remove('show');
+const results = [];
+const assert = (condition, message) => { if (!condition) throw Error(message); };
+const check = (name, fn) => { try { fn(); results.push({name, status:'passed'}); } catch(e) { results.push({name, status:'failed', reason:e.message}); } };
+const inspect = spec => createUISelfCheck(['case']).inspect('case', [spec]).automatic;
+const fails = fn => { let threw = false; try { fn(); } catch { threw = true; } assert(threw, 'Expected exception'); };
+const visual = {status:'passed', evidence:'fixture-unit-test', note:'Synthetic record for report contract only; not a real visual review'};
+check('empty plan rejected', () => fails(() => createUISelfCheck([])));
+check('duplicate plan rejected', () => fails(() => createUISelfCheck(['x','x'])));
+check('unexecuted plan is not passed', () => assert(createUISelfCheck(['open','close']).report().status === 'not-run'));
+check('hidden element fails visible check', () => assert(inspect({type:'visible',selector:'#notice'}) === 'failed'));
+document.querySelector('#trigger').click();
+check('triggered notice is visible', () => assert(inspect({type:'visible',selector:'#notice'}) === 'passed'));
+check('message fits container', () => assert(inspect({type:'contained',selector:'#message',container:'#notice'}) === 'passed'));
+check('overflow child fails', () => assert(inspect({type:'contained',selector:'#outside',container:'#notice'}) === 'failed'));
+document.querySelector('#close').click();
+check('class removal without hiding fails dismissal', () => assert(inspect({type:'hidden',selector:'#notice'}) === 'failed'));
+notice.style.opacity = '0';
+check('transparent element does not count as dismissed', () => assert(inspect({type:'hidden',selector:'#notice'}) === 'failed'));
+notice.style.opacity = ''; notice.hidden = true;
+check('layout-hidden notice passes dismissal', () => assert(inspect({type:'hidden',selector:'#notice'}) === 'passed'));
+notice.hidden = false; notice.style.display = 'contents';
+check('boxless root with rendered children is not dismissed', () => assert(inspect({type:'hidden',selector:'#notice'}) === 'failed'));
+notice.style.display = ''; notice.hidden = true;
+check('removed notice passes dismissal', () => assert(inspect({type:'hidden',selector:'#missing'}) === 'passed'));
+check('missing visible target fails', () => assert(inspect({type:'visible',selector:'#missing'}) === 'failed'));
+check('ambiguous target fails', () => assert(inspect({type:'visible',selector:'.duplicate'}) === 'failed'));
+check('invalid selector fails', () => assert(inspect({type:'visible',selector:'['}) === 'failed'));
+document.querySelector('#dialog').hidden = false; document.querySelector('#background').focus();
+check('background focus fails dialog check', () => assert(inspect({type:'focusWithin',selector:'#dialog'}) === 'failed'));
+document.querySelector('#field').focus();
+check('dialog focus passes', () => assert(inspect({type:'focusWithin',selector:'#dialog'}) === 'passed'));
+check('visual review cannot replace automatic failure', () => {
+ const c=createUISelfCheck(['x']); c.inspect('x',[{type:'visible',selector:'#missing'}]); c.review('x',visual);
+ assert(c.report().status==='failed');
+});
+check('automatic success without visual review remains unverified', () => {
+ const c=createUISelfCheck(['x']); c.inspect('x',[{type:'visible',selector:'#dialog'}]); assert(c.report().status==='not-run');
+ fails(()=>c.review('x',{status:'passed'}));
+});
+check('unexecuted later state prevents overall pass', () => {
+ const c=createUISelfCheck(['x','y']); c.inspect('x',[{type:'visible',selector:'#dialog'}]); c.review('x',visual);
+ assert(c.report().status==='not-run' && c.report().counts['not-run']===1);
+});
+check('retry invalidates earlier visual evidence', () => {
+ const c=createUISelfCheck(['x']); const specs=[{type:'visible',selector:'#dialog'}];
+ c.inspect('x',specs); c.review('x',visual); assert(c.report().status==='passed');
+ c.inspect('x',specs); assert(c.report().status==='not-run');
+ c.review('x',visual); fails(()=>c.inspect('x',[])); assert(c.report().status==='not-run');
+});
+window.selfCheckTests = {passed:results.filter(r=>r.status==='passed').length, failed:results.filter(r=>r.status==='failed'), results};
+document.querySelector('#results').textContent=JSON.stringify(window.selfCheckTests,null,2);
+</script></html>

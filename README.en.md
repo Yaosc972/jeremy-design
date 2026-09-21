@@ -34,6 +34,8 @@ See [validation guidance](references/detail-audit.md). Browser audit scripts are
 
 Additional checks: `python3 tests/matrix-contract.py` and `node tests/visual-review-contract.mjs` run without a browser; `node tests/runner-errors.mjs` covers browser-runner failure paths.
 
+[Finished UI checks](references/finished-ui-check.md) apply to both new and redesigned interfaces: operate, inspect, view screenshots, fix and retest. Inject `scripts/ui-self-check.js` into the current browser to record visibility, dismissal, containment and focus checks separately from visual reviews. It is neither an automatic repair tool nor an enforcement hook. Open `tests/ui-self-check.html` in a browser and inspect `window.selfCheckTests` for regression results; synthetic review records test bookkeeping only.
+
 The Apple reference library retains its original 2026-09 snapshot label; this revision does not reverify every HIG value. Consult [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/) for current authoritative claims. Source labels distinguish HIG guidance, Apple examples, Web adaptations and adjustable project defaults.
 
 MIT; see [LICENSE](LICENSE). Fluid motion references retain attribution to [emilkowalski/skills](https://github.com/emilkowalski/skills). Apple HIG belongs to Apple Inc.; this is not an official Apple product.
