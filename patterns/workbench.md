@@ -1,6 +1,6 @@
 # 工作台模式（数据密集后台）
 
-> **性质**：`PROJECT-DEFAULT` 项目设计模式。本文件是"工作台 / 后台"这类产品的工程约定，不是 Apple 官方模板；与 HIG 冲突处按 Web 口径（信息密度优先）。数据可读性 > 视觉表现。
+> **性质**：`PROJECT-DEFAULT` / `WEB-ADAPTATION`。这是同一套 [Apple Web 设计基础](../references/apple-web-foundation.md) 在数据密集界面的布局与交互约定，不是独立视觉风格或 Apple 官方模板；尺寸和可达性按 Web 输入方式适配，保持数据可读性。
 
 需要配色、字体、间距、材质与组件组合建议时读取 [企业界面视觉语言](../references/enterprise-visual-language.md)，按当前任务选取，不套用固定页面结构。
 

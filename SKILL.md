@@ -1,11 +1,11 @@
 ---
 name: jeremy-design
-description: 设计、实现和改进前端界面，重点覆盖企业工作台、数据审核后台，以及明确要求 Apple 质感的 Web/移动界面。用于页面布局、视觉层级、组件状态与交互落地；纯后端、无视觉影响的代码修改不触发。
+description: 以 Apple 设计理念为默认基础，设计、实现和改进 Web、移动界面与企业工作台；融入紧凑数据界面、轻质面板与清晰模块入口的实践。用于页面布局、视觉层级、组件状态与交互落地，无需额外声明 Apple 风格；纯后端、无视觉影响的代码修改不触发。
 ---
 
 # Jeremy Design
 
-把用户任务组织成清晰、可操作、有辨识度的界面。企业界面按需参考通用视觉语言；Apple HIG 是按需查阅的平台资料，不是所有网页的默认模板。
+以 Apple 设计理念为共同基础，把用户任务组织成清晰、轻盈、可操作的界面。工作台的紧凑排版、模块入口和数据面板是同一设计语言在复杂业务中的延伸，不是另一套企业风格。具体 HIG 平台数值与 Web 适配仍按来源区分。
 
 ## 先判断，再设计
 
@@ -15,12 +15,14 @@ description: 设计、实现和改进前端界面，重点覆盖企业工作台�
 
 优先级：用户明确要求 → 项目设计规范与已选参考 → 本次产品模式 → 本 skill 默认值。规范与现有代码不一致时区分“目标规范”和“观察到的实现”，不要静默把其中一方当成另一方。
 
+**默认先读 [Apple Web 设计基础](references/apple-web-foundation.md)**，再按下表补充布局和交互资料。用户只说“工作台”“后台”或“重构”也采用这套基础，无需再次说 Apple；已有品牌或明确风格要求优先，局部修复不擅自全站换肤。
+
 | 当前任务 | 读取 |
 |---|---|
-| 企业门户、应用首页、数据管理界面 | [工作台交互](patterns/workbench.md) + [企业界面视觉语言](references/enterprise-visual-language.md) |
+| 企业门户、应用首页、数据管理界面 | [工作台交互](patterns/workbench.md) + [Apple 风格工作台元素](references/enterprise-visual-language.md)，延续共同基础 |
 | 移动 Web、小屏触控界面 | [移动 Web](patterns/mobile-web.md) + [Web 适配](references/web-adaptation.md) |
 | 网站、内容展示、新建页面方向未定 | [设计流程](references/design-workflow.md) |
-| 明确要求 Apple / iOS 风格或原生规范 | [Apple 速查](references/apple-quick-reference.md)，再按平台和组件查对应资料 |
+| 需要 Apple 平台的具体规范、控件或原生参数 | [Apple 速查](references/apple-quick-reference.md)，再按平台和组件查对应资料；这不是启用 Apple 设计基础的前提 |
 | 建立或补充设计 token | [Web tokens](references/web-tokens.md)；需要企业界面视觉配方时参考其成对色值 |
 | 列表、表单、保存、异步任务 | [状态与表单](references/states-and-forms.md) |
 | React 实现 | [React 约定](references/react-implementation.md)，仅在项目使用 React 时读取 |

@@ -2,7 +2,7 @@
 
 English | [简体中文](README.md)
 
-A frontend design skill for Claude Code and Codex. It combines general enterprise UI visual guidance with an on-demand Apple HIG reference library.
+A frontend design skill for Claude Code and Codex. Apple-inspired design is the default foundation for websites, mobile interfaces and enterprise workbenches, without requiring an explicit Apple-style request. Compact layouts and lightweight data panels extend that same language.
 
 ## Scope
 
@@ -13,7 +13,7 @@ Use [SKILL.md](SKILL.md) for routing and implementation guidance. Existing proje
 - Apple-style mobile UI: load platform references only when relevant.
 - Local fixes: preserve unrelated layout and verify the affected states.
 
-[Enterprise visual language](references/enterprise-visual-language.md) covers paired colors, typography, density, surfaces, component composition and implementation snippets. These are adaptable patterns, not a universal template. No business records or brand assets are bundled.
+Start with the shared [Apple Web foundation](references/apple-web-foundation.md). [Workbench elements](references/enterprise-visual-language.md) extend it with paired colors, typography, density, surfaces and component composition. A navy sidebar, glass effects and blue branding are not defaults required by enterprise tasks. These are adaptable Web interpretations, not official Apple prescriptions; consult native HIG parameters only when needed. No business records or brand assets are bundled.
 
 ## Install
 

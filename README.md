@@ -2,7 +2,7 @@
 
 [English](README.en.md) | 简体中文
 
-面向 Claude Code / Codex 的前端设计 skill：提供通用的企业界面视觉规范，以及按需查阅的 Apple HIG 参考。
+面向 Claude Code / Codex 的前端设计 skill：以 Apple 设计理念为默认基础，将紧凑工作台、模块入口和轻质数据面板融入同一设计语言，无需额外声明 Apple 风格。
 
 ## 解决什么问题
 
@@ -11,7 +11,7 @@
 - Apple 风格界面：保留原有平台、字体、材质、控件与动效参考，明确区分原生规范和 Web 适配。
 - 既有页面修复：复用项目规范，按改动范围验证，避免把小修复变成整站重设计。
 
-默认先尊重用户要求和项目 `DESIGN.md`。企业界面视觉语言是可选择的参考，不强制所有页面使用蓝色、玻璃、固定数量的卡片或相同布局。
+默认先尊重用户要求和项目 `DESIGN.md`。工作台、网站和移动界面共用 Apple Web 设计基础，按内容调整布局与密度；不强制蓝色、玻璃、深色侧栏或固定卡片数量。具体原生 HIG 参数仍按需查阅。
 
 ## 安装
 
@@ -38,7 +38,8 @@ git clone https://github.com/Yaosc972/jeremy-design.git ~/.codex/skills/jeremy-d
 | 文件 | 用途 |
 |---|---|
 | [SKILL.md](SKILL.md) | 触发、产品模式选择、实现边界与交付 |
-| [企业界面视觉语言](references/enterprise-visual-language.md) | 配色、字体层级、密度、表面材质、组件组合与 CSS 示例 |
+| [Apple Web 设计基础](references/apple-web-foundation.md) | 各类页面默认共用的设计语言与 Web 适配边界 |
+| [Apple 风格工作台元素](references/enterprise-visual-language.md) | 共同基础下的配色、密度、轻质面板、组件组合与 CSS 示例 |
 | [工作台交互](patterns/workbench.md) | 筛选、选择范围、表格、详情上下文 |
 | [移动 Web](patterns/mobile-web.md) | 触控、软键盘与小屏 |
 | [Apple 速查](references/apple-quick-reference.md) | 从原入口移出的原生规范摘要，按需读取 |
@@ -53,7 +54,7 @@ git clone https://github.com/Yaosc972/jeremy-design.git ~/.codex/skills/jeremy-d
 
 补充回归：`python3 tests/matrix-contract.py` 检查矩阵退出码与参数；`node tests/visual-review-contract.mjs` 检查报告隔离、断言透传与评审保存（两者不启动浏览器）；`node tests/runner-errors.mjs` 检查浏览器运行器失败路径。
 
-行为评估建议：分别尝试新工作台、局部修复和移动 Apple 页面，检查是否正确选资料、保持用户范围、不强加主题或无关审计。
+行为评估建议：不提 Apple，直接要求新工作台，检查是否仍采用共同基础；再尝试局部修复和明确其他品牌风格的任务，检查是否保持用户范围与品牌要求。改版另验证前后截图与状态契约。
 
 ## 来源与许可
 
