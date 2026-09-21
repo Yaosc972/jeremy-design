@@ -20,7 +20,7 @@
 
 ## 2. 示例骨架（支持双主题的项目可参考，数值按项目调）
 
-浅色产品仅采用亮色部分和 `color-scheme: light`，不要复制暗色 media 导致原生控件先变暗。HRAS 配色按 [HRAS 设计模式](hras-workbench.md) 的成对色值选择。
+浅色产品仅采用亮色部分和 `color-scheme: light`，不要复制暗色 media 导致原生控件先变暗。企业界面示例配色按 [企业界面视觉语言](enterprise-visual-language.md) 的成对色值选择。
 
 ```css
 :root {

@@ -7,7 +7,7 @@
 
 ## 读取范围
 
-本文件含千行原生平台规格表，不应为普通 Web 字体任务全文加载。Web 工作台先看 `hras-workbench.md` 与 `web-tokens.md`；明确的原生需求再定位平台、字号档位或字体家族对应章节。可搜索 `Large (default)`、`macOS built-in text styles`、`Tracking values`，不要把所有平台的数字套在一个网页上。
+本文件含千行原生平台规格表，不应为普通 Web 字体任务全文加载。Web 工作台先看 `enterprise-visual-language.md` 与 `web-tokens.md`；明确的原生需求再定位平台、字号档位或字体家族对应章节。可搜索 `Large (default)`、`macOS built-in text styles`、`Tracking values`，不要把所有平台的数字套在一个网页上。
 
 ## 保证可读性（Ensuring legibility）
 

@@ -21,7 +21,7 @@
 | 模式 | 首要设计目标 | 读哪个文件 |
 |---|---|---|
 | **网站 / 内容页面** | 看懂内容、建立信任、完成下一步 | 本文件 §3 + `layout.md` / `typography.md` |
-| **工作台 / 后台** | 高效查找、比较、编辑和处理数据 | `../patterns/workbench.md` + `hras-workbench.md` |
+| **工作台 / 后台** | 高效查找、比较、编辑和处理数据 | `../patterns/workbench.md` + `enterprise-visual-language.md` |
 | **移动 Web** | 小屏与触控下顺畅完成任务 | `../patterns/mobile-web.md` |
 
 这三种模式是**本 skill 建立的项目设计模式，不是 Apple 官方规定的模板**。同一产品可以混合（桌面工作台 + 移动端），分流按**本次任务实际交付的界面**定。

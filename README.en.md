@@ -2,18 +2,18 @@
 
 English | [简体中文](README.md)
 
-A frontend design skill for Claude Code and Codex. It combines task-oriented HRAS enterprise workbench patterns with an on-demand Apple HIG reference library.
+A frontend design skill for Claude Code and Codex. It combines general enterprise UI visual guidance with an on-demand Apple HIG reference library.
 
 ## Scope
 
 Use [SKILL.md](SKILL.md) for routing and implementation guidance. Existing project design systems and explicit user choices take priority.
 
-- Module home: actionable entries, availability, rules/help and recent batches.
-- Batch review: scope controls, stage progress, records, exceptions and output actions.
+- Visual hierarchy: color, type scales, spacing, borders, radii, shadows and surfaces.
+- Composition: card grids, compact toolbars, data tables, primary/secondary regions and responsive reflow.
 - Apple-style mobile UI: load platform references only when relevant.
 - Local fixes: preserve unrelated layout and verify the affected states.
 
-[HRAS patterns](references/hras-workbench.md) document source revisions, two distinct compositions, paired colors, density, implementation snippets and counterexamples. These are adaptable patterns, not a universal template. No business records or brand assets are bundled.
+[Enterprise visual language](references/enterprise-visual-language.md) covers paired colors, typography, density, surfaces, component composition and implementation snippets. These are adaptable patterns, not a universal template. No business records or brand assets are bundled.
 
 ## Install
 
@@ -34,6 +34,6 @@ See [validation guidance](references/detail-audit.md). Browser audit scripts are
 
 Additional checks: `python3 tests/matrix-contract.py` and `node tests/visual-review-contract.mjs` run without a browser; `node tests/runner-errors.mjs` covers browser-runner failure paths.
 
-The Apple reference library retains its original 2026-09 snapshot label; this revision does not reverify every HIG value. Consult [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/) for current authoritative claims. Source labels distinguish observed HRAS patterns, HIG guidance, Apple examples, Web adaptations and adjustable project defaults.
+The Apple reference library retains its original 2026-09 snapshot label; this revision does not reverify every HIG value. Consult [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/) for current authoritative claims. Source labels distinguish HIG guidance, Apple examples, Web adaptations and adjustable project defaults.
 
 MIT; see [LICENSE](LICENSE). Fluid motion references retain attribution to [emilkowalski/skills](https://github.com/emilkowalski/skills). Apple HIG belongs to Apple Inc.; this is not an official Apple product.

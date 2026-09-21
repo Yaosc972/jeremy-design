@@ -2,7 +2,7 @@
 
 > **性质**：`PROJECT-DEFAULT` 项目设计模式。本文件是"工作台 / 后台"这类产品的工程约定，不是 Apple 官方模板；与 HIG 冲突处按 Web 口径（信息密度优先）。数据可读性 > 视觉表现。
 
-需要 HRAS 风格时读取 [HRAS 设计模式](../references/hras-workbench.md)，先区分模块入口与批次审核，不能将所有页面套成同一布局。
+需要配色、字体、间距、材质与组件组合建议时读取 [企业界面视觉语言](../references/enterprise-visual-language.md)，按当前任务选取，不套用固定页面结构。
 
 ## 1. 布局骨架
 

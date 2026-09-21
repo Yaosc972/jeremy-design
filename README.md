@@ -2,16 +2,16 @@
 
 [English](README.en.md) | 简体中文
 
-面向 Claude Code / Codex 的前端设计 skill：把 HRAS 企业工作台的页面组织经验与按需查阅的 Apple HIG 参考结合起来。
+面向 Claude Code / Codex 的前端设计 skill：提供通用的企业界面视觉规范，以及按需查阅的 Apple HIG 参考。
 
 ## 解决什么问题
 
-- 企业入口页：模块入口、业务范围、可用状态、规则入口与最近批次。
-- 批次审核页：控制区、流程进度、审核表格、异常处理和输出操作。
+- 视觉层次：配色、字体比例、留白、边框、圆角、轻阴影与材质。
+- 组件与布局：卡片网格、紧凑工具栏、数据表格、主辅分区和响应式重排。
 - Apple 风格界面：保留原有平台、字体、材质、控件与动效参考，明确区分原生规范和 Web 适配。
 - 既有页面修复：复用项目规范，按改动范围验证，避免把小修复变成整站重设计。
 
-默认先尊重用户要求和项目 `DESIGN.md`。HRAS 是可选择的模式，不强制所有页面使用蓝色、玻璃、固定数量的卡片或相同布局。
+默认先尊重用户要求和项目 `DESIGN.md`。企业界面视觉语言是可选择的参考，不强制所有页面使用蓝色、玻璃、固定数量的卡片或相同布局。
 
 ## 安装
 
@@ -28,8 +28,8 @@ git clone https://github.com/Yaosc972/jeremy-design.git ~/.codex/skills/jeremy-d
 
 ## 使用示例
 
-- “用 jeremy-design 做一个 HRAS 风格采购审核工作台，左侧审核，右侧输出。”
-- “参考国内劳务首页组织业务模块入口，展示最近批次和可用状态。”
+- “用 jeremy-design 设计清晰、紧凑的企业数据界面。”
+- “使用冷灰白底、克制的蓝色强调和轻质卡片改善页面层次。”
 - “修复现有工具栏在窄窗口的文字截断，保留其他视觉。”
 - “设计 iOS 风格的移动设置页。”
 
@@ -38,7 +38,7 @@ git clone https://github.com/Yaosc972/jeremy-design.git ~/.codex/skills/jeremy-d
 | 文件 | 用途 |
 |---|---|
 | [SKILL.md](SKILL.md) | 触发、产品模式选择、实现边界与交付 |
-| [HRAS 模式](references/hras-workbench.md) | 两类页面骨架、来源、配色、密度、CSS 示例与反例 |
+| [企业界面视觉语言](references/enterprise-visual-language.md) | 配色、字体层级、密度、表面材质、组件组合与 CSS 示例 |
 | [工作台交互](patterns/workbench.md) | 筛选、选择范围、表格、详情上下文 |
 | [移动 Web](patterns/mobile-web.md) | 触控、软键盘与小屏 |
 | [Apple 速查](references/apple-quick-reference.md) | 从原入口移出的原生规范摘要，按需读取 |
@@ -57,6 +57,6 @@ git clone https://github.com/Yaosc972/jeremy-design.git ~/.codex/skills/jeremy-d
 
 ## 来源与许可
 
-HRAS 模式来自本地设计规范及模块工作树，具体文件、版本与适用边界见参考文件；不附带业务数据和品牌资产。Apple 参考保留原仓库标注的 2026-09 快照，未在这次改造中逐条重新验证；需要当前官方结论时查 [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/)。来源区分为 `HRAS-OBSERVED`、`HIG`、`APPLE-EXAMPLE`、`WEB-ADAPTATION`、`PROJECT-DEFAULT`。
+企业界面视觉配方属于可调整的项目默认值，不附带特定平台、业务流程或品牌资产。Apple 参考保留原仓库标注的 2026-09 快照，未在这次改造中逐条重新验证；需要当前官方结论时查 [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/)。来源区分为 `HIG`、`APPLE-EXAMPLE`、`WEB-ADAPTATION`、`PROJECT-DEFAULT`。
 
 MIT，见 [LICENSE](LICENSE)。流体动效参考改编自 [emilkowalski/skills](https://github.com/emilkowalski/skills)，保留原许可归属。Apple HIG 版权归 Apple Inc. 所有，本项目不是 Apple 官方产品。
