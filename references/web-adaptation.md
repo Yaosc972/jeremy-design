@@ -24,7 +24,7 @@
 |---|---|
 | **point / hit region** | §0 的单位策略；`pointer-events`、伪元素扩热区、触屏 `touch-action: manipulation` 消 300ms 延迟 |
 | **Dynamic Type** | 默认架构：文字用相对尺寸（rem/em/无单位行高）、文本容器优先自适应高度、布局允许换行和重新分栏、应用内字号设置按产品需要增加；若产品提供应用内字号（A+/A−），可用全局系数（如 `--dt`）+ `calc(基准 × var(--dt))` 实现，至少验到 200% 放大不破版不截断，大字号下内联项改堆叠布局。验证：页面级 A+/A− 或浏览器字号缩放实测 |
-| **语义色 label/systemBackground** | CSS custom properties 定义两套值：`[data-theme="dark"]` + `@media (prefers-color-scheme: dark)`（auto 档）；提供 Increase Contrast 近似（`prefers-contrast: more` 提对比）；只提供产品实际支持的外观；单一浅色产品保持 `color-scheme: light`，不额外引入暗色主题 |
+| **语义色 label/systemBackground** | 用 CSS custom properties 表达语义色；产品支持双主题时定义两套值：`[data-theme="dark"]` + `@media (prefers-color-scheme: dark)`（auto 档）；提供 Increase Contrast 近似（`prefers-contrast: more` 提对比）；只提供产品实际支持的外观；单一浅色产品保持 `color-scheme: light`，不额外引入暗色主题 |
 | **Safe Area** | `<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">` + `env(safe-area-inset-top/bottom/left/right)` 用于 fixed 头尾的 padding；无刘海环境的普通留白不混用 env() |
 | **Sheet / 弹窗** | 模态语义不止是动画：`role="dialog"` + `aria-modal`、打开时焦点移入、焦点圈定（keyboard trap）内、Esc/关闭按钮可达、关闭后焦点还原触发元素、背景对读屏不可交互（`inert` 或等价）。弹簧动画只是外壳 |
 | **Liquid Glass** | `backdrop-filter: blur() saturate()` 是**视觉近似**：`-webkit-` 前缀按目标浏览器决定（Safari 18 已支持无前缀版本，只需兼容更旧 Safari 时才加）；提供降级（`@supports not (backdrop-filter:…)` → 更高不透明度实底）；`prefers-reduced-transparency: reduce` → 去模糊提实底；可读性永远优先于玻璃效果 |

@@ -29,4 +29,3 @@
 - 反馈即时可见；破坏性操作需确认；控件行为与平台惯例一致
 - 图标优先 SF Symbols 语义（与文字自动对齐字重）；Web 项目用近似 SVG 库——默认 **Lucide**（ISC、24px 网格、stroke 可调，字重映射与集成方式见 `icons-symbols.md` §3）
 - **流体动效（web）**：弹簧动画用 ζ(damping ratio)+response——WWDC 2018 的原始建议即**从无过冲（ζ 1.0）起步**，带动量的手势（如滑动关闭）才适当加弹跳（ζ ~0.8）；演讲具体参数属特定案例（`APPLE-EXAMPLE`），不上升为统一默认。反馈在 pointer-down 即时发生；手势释放速度传给弹簧（用物理弹簧维护速度，勿用 duration 型）；甩动落点用动量投影（decelerationRate 0.998）；边界用橡皮筋（c=0.55）不硬停；动画可随时中断并从当前值续走。细节与代码见 `fluid-motion-web.md`
-
