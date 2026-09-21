@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve, basename } from 'node:path';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const RUNNER = join(here, 'audit-runner.mjs');
@@ -39,30 +40,43 @@ if (!base || !test) { console.error('缺少 --base 或 --test'); process.exit(2)
 const viewport = opt('viewport', '1440x900');
 const outHtml = resolve(opt('out', join(tmpdir(), 'visual-review.html')));
 const states = (opt('states', '') || '').split(',').map(s => s.trim()).filter(Boolean);
-const runnerExtra = args.filter((a, i) => ['--ready', '--assert'].includes(args[i - 1]));
+const runnerExtra = [];
+for (const flag of ['--ready', '--assert']) {
+  if (!args.includes(flag)) continue;
+  const value = opt(flag.slice(2));
+  if (value === undefined) { console.error(`缺少 ${flag} 的表达式`); process.exit(2); }
+  runnerExtra.push(flag, value);
+}
 
 const stateNames = ['默认状态', ...states.map(s => basename(s).replace(/\.js$/, ''))];
 const stateFiles = [null, ...states];
 
-// 截图目录：与产物同目录的 _vr-assets/
+// 每次生成独立资源目录，避免覆盖同目录的其他报告或上次生成的截图。
 const outDir = dirname(outHtml);
 mkdirSync(outDir, { recursive: true });
-const assetsDir = join(outDir, '_vr-assets');
-rmSync(assetsDir, { force: true, recursive: true });
-mkdirSync(assetsDir, { recursive: true });
+const assetsDir = mkdtempSync(join(outDir, `${basename(outHtml)}.assets-`));
+const assetsName = basename(assetsDir);
+let completed = false;
+process.on('exit', () => { if (!completed) rmSync(assetsDir, { force: true, recursive: true }); });
 
 const shots = [];
 for (let i = 0; i < stateFiles.length; i++) {
   const row = { name: stateNames[i], base: null, test: null };
   for (const side of ['base', 'test']) {
     const target = side === 'base' ? base : test;
-    const png = join(assetsDir, `${String(i).padStart(2, '0')}-${row.name}-${side}.png`);
+    const png = join(assetsDir, `${String(i).padStart(2, '0')}-${side}.png`);
     const extra = stateFiles[i] ? ['--state', resolve(stateFiles[i])] : [];
     const r = spawnSync(process.execPath, [RUNNER, '--target', target, '--audit', AUDIT,
       '--viewport', viewport, '--shot', png, '--shot-full', ...extra, ...runnerExtra], { encoding: 'utf8' });
     let d = null; try { d = JSON.parse(r.stdout); } catch {}
-    if (r.status !== 0 || !d?.ok) {
-      console.error(`截图失败（${side} / ${row.name}，exit ${r.status}）：`, d?.fail || (r.stderr || '').slice(0, 300));
+    let pngValid = false;
+    try {
+      const bytes = readFileSync(png);
+      pngValid = bytes.length >= 24 && bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))
+        && bytes.readUInt32BE(16) > 0 && bytes.readUInt32BE(20) > 0;
+    } catch {}
+    if (r.status !== 0 || !d?.ok || d.blank || d.errors?.length || !pngValid) {
+      console.error(`截图失败（${side} / ${row.name}，exit ${r.status}）：`, d?.fail || (d?.blank ? '页面空白' : d?.errors?.join('; ')) || (!pngValid ? '截图缺失或 PNG 无效' : (r.stderr || '').slice(0, 300)));
       process.exit(2);
     }
     row[side] = { png: basename(png), counts: d.result?.counts || {}, shot: d.shot || {} };
@@ -77,8 +91,8 @@ const countsHtml = c => `blocked <b class="${c.blocked ? 'bad' : 'ok'}">${c.bloc
 const CHECKS = ['层次保留', '语义权重', '布局密度', '色彩信息', '整体观感'];
 const rowsHtml2 = shots.map((row, i) => {
   const cells = ['base', 'test'].map(side => `
-    <td class="shot-cell"><a href="_vr-assets/${row[side].png}" target="_blank" title="点击在新窗口看原始尺寸">
-      <img src="_vr-assets/${row[side].png}" loading="lazy" alt="${esc(row.name)} ${side}"></a>
+    <td class="shot-cell"><a href="${esc(encodeURIComponent(assetsName))}/${encodeURIComponent(row[side].png)}" target="_blank" title="点击在新窗口看原始尺寸">
+      <img src="${esc(encodeURIComponent(assetsName))}/${encodeURIComponent(row[side].png)}" loading="lazy" alt="${esc(row.name)} ${side}"></a>
       <div class="counts">${side === 'base' ? '基线' : '改版'}：${countsHtml(row[side].counts)}${row[side].shot.full ? ` · 全页 ${row[side].shot.w}×${row[side].shot.h}` : ''}</div>
     </td>`).join('');
   const ckptHtml = CHECKS.map(c => `<div class="ckpt" data-ckpt="${c}"><span class="ckpt-name">${c}</span>
@@ -92,7 +106,8 @@ const rowsHtml2 = shots.map((row, i) => {
   </tr>`;
 }).join('\n');
 
-const key = 'vr-' + Buffer.from(base + '|' + test + '|' + viewport).toString('base64url').slice(0, 24);
+// 评审只属于本次生成；重新截图后必须重新判定。
+const key = 'vr-' + createHash('sha256').update(JSON.stringify({ base, test, viewport, states, assetsDir })).digest('hex');
 const html = `<!doctype html>
 <html lang="zh"><head><meta charset="utf-8"><title>视觉对比 · ${esc(basename(String(base)))} vs ${esc(basename(String(test)))}</title>
 <style>
@@ -121,7 +136,7 @@ const html = `<!doctype html>
 <header>
  <h1>视觉重构对比 · 基线 vs 改版</h1>
  <div class="meta">基线 <code>${esc(base)}</code>　改版 <code>${esc(test)}</code>　视口 ${esc(viewport)}　生成 ${new Date().toLocaleString('zh-CN')}</div>
- <div class="use">用法：逐行展开对比截图（点图开原始尺寸），每行 5 个检查点逐一判定 <b>通过 / 退化 / 备案</b>，退化与备案必须在备注写明具体位置与理由。勾选自动保存（localStorage）。<b>全部行勾完且无未处置退化，视觉重构才算完成</b>——机械检测全过不能替代本页（几何检测测不出"坏的设计"）。检查点含义见 references/detail-audit.md「视觉重构验收」。</div>
+ <div class="use">用法：逐行展开对比截图（点图开原始尺寸），每行 5 个检查点逐一判定 <b>通过 / 退化 / 备案</b>，退化与备案必须在备注写明具体位置与理由。勾选与备注自动保存（localStorage），退化或备案缺少理由时不计入已判。<b>全部行勾完且无未处置退化，视觉重构才算完成</b>——机械检测全过不能替代本页（几何检测测不出"坏的设计"）。检查点含义见 references/detail-audit.md「视觉重构验收」。</div>
 </header>
 <table><tbody>
 ${rowsHtml2}
@@ -130,28 +145,42 @@ ${rowsHtml2}
 <script>
 const KEY=${JSON.stringify(key)};
 const els=[...document.querySelectorAll('input[type=radio]')];
-const saved=JSON.parse(localStorage.getItem(KEY)||'{}');
-els.forEach(e=>{const k=e.name+'='+e.value;if(saved[k])e.checked=true;});
+const rows=[...document.querySelectorAll('tr[data-row]')];
+let saved={};
+try { saved=JSON.parse(localStorage.getItem(KEY)||'{}')||{}; } catch {}
+els.forEach(e=>{const k=e.name+'='+e.value;if(saved.choices?.[k])e.checked=true;});
+rows.forEach(tr=>{const note=tr.querySelector('.note');note.value=saved.notes?.[tr.dataset.row]||'';});
 function upd(){
-  const st={};let done=0,reg=0,wa=0;
-  els.forEach(e=>{if(e.checked){st[e.name+'='+e.value]=1;done++;if(e.value==='regress')reg++;if(e.value==='waive')wa++;}});
+  const st={choices:{},notes:{}};let done=0,reg=0,wa=0;
+  rows.forEach(tr=>{
+    const selected=[...tr.querySelectorAll('input:checked')];
+    const note=tr.querySelector('.note');
+    const hasReason=note.value.trim().length>0;
+    const needsReason=selected.some(e=>e.value==='regress'||e.value==='waive');
+    st.notes[tr.dataset.row]=note.value;
+    selected.forEach(e=>{
+      st.choices[e.name+'='+e.value]=1;
+      if(e.value==='pass'||hasReason)done++;
+      if(e.value==='regress')reg++;
+      if(e.value==='waive')wa++;
+    });
+    tr.classList.toggle('has-regress',selected.some(e=>e.value==='regress'));
+    note.required=needsReason;
+    note.setAttribute('aria-invalid',String(needsReason&&!hasReason));
+    note.style.borderColor=needsReason&&!hasReason?'#d70015':'#d2d2d7';
+  });
   localStorage.setItem(KEY,JSON.stringify(st));
   document.getElementById('done').textContent=done;
   document.getElementById('reg').textContent=reg;
   document.getElementById('wa').textContent=wa;
-  document.querySelectorAll('tr[data-row]').forEach(tr=>{
-    const n=[...tr.querySelectorAll('input:checked')].some(e=>e.value==='regress');
-    tr.classList.toggle('has-regress',n);
-    const note=tr.querySelector('.note');
-    if(note&&!note.dataset.touched)note.style.borderColor=n?'#d70015':'#d2d2d7';
-  });
 }
 els.forEach(e=>e.addEventListener('change',upd));
-document.querySelectorAll('.note').forEach(n=>n.addEventListener('input',()=>{n.dataset.touched=1;n.style.borderColor='#d2d2d7';}));
+rows.forEach(tr=>tr.querySelector('.note').addEventListener('input',upd));
 upd();
 </script>
 </body></html>`;
 
 writeFileSync(outHtml, html);
+completed = true;
 console.log(`\n对照片已生成：${outHtml}`);
 console.log('下一步：浏览器打开，逐行勾选判定（层次/权重/密度/色彩/整体），处置全部退化与备案后视觉验收完成。');

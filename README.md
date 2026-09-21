@@ -51,6 +51,8 @@ git clone https://github.com/Yaosc972/jeremy-design.git ~/.codex/skills/jeremy-d
 
 修改审计脚本后运行 `node tests/regression.mjs`（需要可用 Node 和 Chrome，具体运行环境见脚本）。几何检测通过不代表视觉或业务通过；skill 入口校验也不代表已做生成效果 A/B 测试。
 
+补充回归：`python3 tests/matrix-contract.py` 检查矩阵退出码与参数；`node tests/visual-review-contract.mjs` 检查报告隔离、断言透传与评审保存（两者不启动浏览器）；`node tests/runner-errors.mjs` 检查浏览器运行器失败路径。
+
 行为评估建议：分别尝试新工作台、局部修复和移动 Apple 页面，检查是否正确选资料、保持用户范围、不强加主题或无关审计。
 
 ## 来源与许可

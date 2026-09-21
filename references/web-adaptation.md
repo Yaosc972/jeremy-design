@@ -7,7 +7,7 @@
 
 - **原生 Apple 坐标使用逻辑 point**（由系统映射到设备像素）；**Web 使用 CSS px/rem**。CSS 的 `pt` 是 DTP 点（1pt = 4/3 px），**不是** Apple 的逻辑 point——禁止做"网页按钮 32px ≈ 24pt，低于 28pt"这类跨单位推导。
 - 正确流程：原生尺寸表（pt）→ 判断意图（这是 hit region / 字号 / 间距？）→ Web 端按意图选 CSS px 值并在项目中记录适配决策。
-- 本 skill 的 Web 默认值（均为 `PROJECT-DEFAULT`，可按项目调整）：
+- 下表仅为触控优先、Apple 风格 Web 的默认适配；桌面工作台按 `web-tokens.md` §4 选密度，不能据此强制 44px 控件或 17px 正文。数值均为 `PROJECT-DEFAULT`，可按项目调整：
 
 | 原生值（HIG） | Web 默认适配 | 说明 |
 |---|---|---|
@@ -33,21 +33,21 @@
 ## 2. 无障碍验收（Web 口径）
 
 - 对比度按 **W3C WCAG** 判定：普通文字（含小字号粗体）≥4.5:1；大号文字（≥24 CSS px 常规 / ≥约 18.67 CSS px 粗体）≥3:1。Apple Accessibility 页的"Bold 任意字号 3:1"仅适用于原生平台口径（见 accessibility.md 的冲突说明）。
-- 三个媒体查询都要响应：`prefers-reduced-motion`（滑移→交叉淡化，**不改变组件显隐状态**）、`prefers-reduced-transparency`（玻璃→实底）、`prefers-contrast: more`（提对比+明确边线）。
+- 按实际使用的效果提供降级，不要求为未使用的效果新增设置：`prefers-reduced-motion`（滑移→交叉淡化，**不改变组件显隐状态**）、`prefers-reduced-transparency`（玻璃→实底）、`prefers-contrast: more`（提对比+明确边线）。
 - 键盘可达：所有**功能**键盘可达、可见 focus 态、`:focus-visible` 而非全局 outline 移除。复合组件（Tabs、菜单、网格）通常采用"组件间 Tab、组件内方向键"的漫游焦点模式；Enter/Space 的激活语义按元素与交互模式处理（button 用 Enter+Space、链接用 Enter、ARIA 模式按 APG 对应示例），不能统一套用。
 
 ## 3. 最低验收基线（本 skill 的工程约定，非 Apple 规定）
 
 区分两类验收，不要混淆：
 
-- **skill 维护**：用固定示例（设置页/模态 sheet/拖拽播放器）验证**规则与脚本本身**——这三个页面是 skill 的回归样例。
+- **skill 维护**：脚本回归实际使用 `tests/fixtures/detector-cases.html` 与 `rm-probe.html`。设置页、模态 sheet、播放器是可选行为评估场景，仓库未提供这三个成品示例，不得声称已测试。
 - **用户项目交付**：验收**该项目实际存在的**页面与关键流程。用户要一个数据工作台，就不应为验收额外造一个播放器。
 
-交付用户项目时，对实际页面跑 detail-audit.md 的矩阵：浅/深色、字号放大（≥200% 或项目支持的最大档）、纯键盘操作、读屏要点（dialog role/focus）、reduced-motion、动画中断，外加该项目自身的空态/加载/异常状态。报告时区分"已验证"与"未验证"。
+交付用户项目时，按 `detail-audit.md` §0 选择实际支持的主题、放大、键盘与相关数据状态；存在模态或动效时补对应焦点、降级和中断检查。审计脚本只检查几何与运行错误，不自动验证键盘、读屏、对比度或业务流程。报告区分已验证与未验证。
 
 ## 4. 中文排版与断行（CJK line breaking）
 
-> `WEB-ADAPTATION` + `PROJECT-DEFAULT`。断行问题以中文/中英混排最严重；纯英文页面基本无拆词问题，但过窄容器等场景仍可能产生短行与孤字（检测矩阵对英文文本同样会告警）。生成中文/中英混排页面必须处理，否则出现拆词、孤字行、专名跨行等中文特有的排版事故。
+> `WEB-ADAPTATION` + `PROJECT-DEFAULT`。断行问题以中文/中英混排最严重；纯英文页面基本无拆词问题，但过窄容器等场景仍可能产生短行与孤字（当前 wrapped 检测有 CJK 门卫，不检测纯英文孤字；英文需另行目视检查）。生成中文/中英混排页面必须处理，否则出现拆词、孤字行、专名跨行等中文特有的排版事故。
 
 中文词间无空格，浏览器默认可在任意汉字间断行——语法合法但经常难看。四类问题与对策：
 

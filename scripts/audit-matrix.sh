@@ -38,12 +38,19 @@ TARGET=""; declare -a VIEWPORTS=() DIMS=()
 RM_LIST=("reduce" "no-preference"); TIMEOUT=30000; READY=""; ASSERT=""
 while [ $# -gt 0 ]; do
   case "$1" in
+    --viewport|--dim|--rm|--timeout|--ready|--assert)
+      if [ $# -lt 2 ] || [ -z "$2" ] || [[ "$2" == --* ]]; then
+        echo "缺少选项值: $1" >&2; exit 2
+      fi;;
+  esac
+  case "$1" in
     --viewport) VIEWPORTS+=("$2"); shift 2;;
     --dim)      DIMS+=("$2"); shift 2;;
     --rm)       case "$2" in
                   both) RM_LIST=("reduce" "no-preference");;
                   off)  RM_LIST=("");;
-                  *)    RM_LIST=(${2//,/ });;
+                  reduce|no-preference) RM_LIST=("$2");;
+                  *) echo "无效 --rm: $2" >&2; exit 2;;
                 esac; shift 2;;
     --timeout)  TIMEOUT="$2"; shift 2;;
     --ready)    READY="$2"; shift 2;;
@@ -59,6 +66,9 @@ done
 # 状态组合 = 各维度的笛卡尔积（--dim "a.js,b.js" --dim "c.js" → a+c、b+c）
 declare -a COMBOS=("")
 for dim in ${DIMS[@]+"${DIMS[@]}"}; do
+  if [[ "$dim" == ,* || "$dim" == *, || "$dim" == *,,* ]]; then
+    echo "状态维度包含空项: $dim" >&2; exit 2
+  fi
   IFS=',' read -ra items <<< "$dim"
   declare -a next=()
   for c in "${COMBOS[@]}"; do
@@ -94,11 +104,11 @@ for vp in "${VIEWPORTS[@]}"; do
       echo "[$idx] $label | $vp | rm=$rm_label"
       out="$(node "$RUNNER" "${rargs[@]}" 2>/dev/null)"
       rcode=$?
-      if [ $rcode -eq 2 ] || [ -z "$out" ]; then
+      if [ $rcode -ne 0 ] || [ -z "$out" ]; then
         failmsg="$(printf '%s' "$out" | python3 -c 'import json,sys
 try: print(json.load(sys.stdin).get("fail",""))
 except Exception: print("")' 2>/dev/null)"
-        echo "    ✗ 执行失败（退出码 $rcode）${failmsg:+: $failmsg}"
+        echo "    ✗ 执行失败（退出码 ${rcode}）${failmsg:+: $failmsg}"
         ([ -z "$failmsg" ] && [ -n "$out" ]) && printf '%s\n' "$out" | head -c 300
         total_fail=$((total_fail+1)); worst=2; continue
       fi
@@ -122,12 +132,13 @@ sk=r.get("skipped") or []
 if sk:
     print("    ⓘ 豁免 "+str(len(sk))+" 项（带证据，可审查）")
     for x in sk[:4]: print("      - ["+x["reason"]+"] "+x["t"]+" ← "+str(x.get("evidence")))
-sys.exit(1 if c["blocked"] else 0)
+sys.exit(3 if c["blocked"] else 0)
 '
       pcode=$?
       case $pcode in
-        2) total_fail=$((total_fail+1)); [ $worst -lt 2 ] && worst=2;;
-        1) total_blocked=$((total_blocked+1)); [ $worst -lt 1 ] && worst=1;;
+        0) ;;
+        3) total_blocked=$((total_blocked+1)); [ $worst -lt 1 ] && worst=1;;
+        *) total_fail=$((total_fail+1)); worst=2;;
       esac
     done
   done

@@ -9,7 +9,7 @@
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { writeFileSync, readFileSync, rmSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -101,7 +101,8 @@ console.log('\n  ── 工具面（视觉验收链路）──');
   rmSync(png, { force: true });
 }
 {
-  const outH = join(tmpdir(), `vr-smoke-${process.pid}.html`);
+  const reviewDir = mkdtempSync(join(tmpdir(), 'jd-vr-smoke-'));
+  const outH = join(reviewDir, 'review.html');
   const rv = spawnSync(process.execPath, [join(root, 'scripts/visual-review.mjs'),
     '--base', join(here, 'fixtures/detector-cases.html'), '--test', join(here, 'fixtures/detector-cases.html'),
     '--out', outH], { encoding: 'utf8' });
@@ -109,12 +110,11 @@ console.log('\n  ── 工具面（视觉验收链路）──');
   if (okRv) {
     try {
       const h = readFileSync(outH, 'utf8');
-      okRv = h.includes('层次保留') && h.includes('语义权重') && h.includes('_vr-assets/') && h.includes('<img src="_vr-assets/');
+      okRv = h.includes('层次保留') && h.includes('语义权重') && h.includes('review.html.assets-') && h.includes('<img src="review.html.assets-');
     } catch { okRv = false; }
   }
   check('visual-review 对照片生成（含双截图与 5 检查点）→ exit 0', okRv);
-  rmSync(outH, { force: true });
-  rmSync(join(dirname(outH), '_vr-assets'), { force: true, recursive: true });
+  rmSync(reviewDir, { force: true, recursive: true });
 }
 
 console.log(`\n${bad ? `回归失败：共 ${bad} 项不符期望` : `回归通过：检测器 ${cases.length} 项 + 运行器失败路径 7 项 + 工具面 2 项全部符合期望`}`);

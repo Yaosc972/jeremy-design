@@ -64,6 +64,7 @@ const chrome = spawn(chromePath, [
 let wsUrl = null;
 const wsReady = new Promise((res, rej) => {
   const t = setTimeout(() => rej(new Error('Chrome 启动超时')), 10000);
+  chrome.once('error', e => { clearTimeout(t); rej(e); });
   chrome.stderr.on('data', d => {
     const m = String(d).match(/DevTools listening on (ws:\/\/\S+)/);
     if (m) { clearTimeout(t); wsUrl = m[1]; res(); }
@@ -110,12 +111,16 @@ async function main() {
   const pending = new Map();
   ws.onmessage = ev => {
     const m = JSON.parse(ev.data);
-    if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
+    if (m.id && pending.has(m.id)) {
+      const call = pending.get(m.id); pending.delete(m.id);
+      if (m.error) call.reject(new Error(`CDP ${call.method}: ${m.error.message}`));
+      else call.resolve(m);
+    }
     else if (m.method) events.push(m);
   };
-  const send = (method, params = {}, sessionId) => new Promise(res => {
+  const send = (method, params = {}, sessionId) => new Promise((resolve, reject) => {
     const id = ++msgId;
-    pending.set(id, res);
+    pending.set(id, { resolve, reject, method });
     ws.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
   });
   const waitEvent = (method, sessionId) => new Promise(res => {
@@ -211,8 +216,6 @@ async function main() {
     if (!ac.ok) return finish(2, failPayload(`状态断言未满足: ${assertExpr} — ${ac.reason}`));
   }
 
-  const errors = collectErrors();
-
   // 截图（目视复核用）：默认当前视口；--shot-at <y> 先滚动到指定位置；
   // --shot-full 全页截图（captureBeyondViewport，长页面逐类型目视对比用）
   let shotMeta = null;
@@ -225,6 +228,7 @@ async function main() {
     }
     const full = args.includes('--shot-full');
     const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: full }, sessionId);
+    if (!shot.result?.data) throw new Error('截图响应缺少图片数据');
     if (shot.result?.data) {
       const buf = Buffer.from(shot.result.data, 'base64');
       writeFileSync(shotPath, buf);
@@ -239,10 +243,12 @@ async function main() {
     returnByValue: true,
   }, sessionId);
 
+  const errors = collectErrors();
   const v = injected.result?.result?.value;
   if (!v || v.ok !== true) {
     return finish(2, { ok: false, blank: null, errors, result: null, target: url, viewport: opt('viewport', '1440x900'), rm, fail: 'AUDIT 执行失败: ' + (v?.err || injected.result?.exceptionDetails?.text || '未知') });
   }
+  if (v.blank || errors.length) return finish(2, failPayload(v.blank ? '页面空白' : '页面存在运行错误'));
   finish(0, { ok: true, blank: v.blank, errors, result: v.r, target: url, viewport: opt('viewport', '1440x900'), rm, shot: shotMeta });
 }
 

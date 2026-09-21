@@ -32,6 +32,8 @@ These commands install the remote default branch, not unpublished local changes.
 
 See [validation guidance](references/detail-audit.md). Browser audit scripts are optional helpers; run `node tests/regression.mjs` after changing the audit tools (requires Node and Chrome). Static skill validation and geometry checks do not prove design quality. Evaluate routing with an enterprise review app, a narrow existing-UI fix, and an Apple-style mobile page.
 
+Additional checks: `python3 tests/matrix-contract.py` and `node tests/visual-review-contract.mjs` run without a browser; `node tests/runner-errors.mjs` covers browser-runner failure paths.
+
 The Apple reference library retains its original 2026-09 snapshot label; this revision does not reverify every HIG value. Consult [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/) for current authoritative claims. Source labels distinguish observed HRAS patterns, HIG guidance, Apple examples, Web adaptations and adjustable project defaults.
 
 MIT; see [LICENSE](LICENSE). Fluid motion references retain attribution to [emilkowalski/skills](https://github.com/emilkowalski/skills). Apple HIG belongs to Apple Inc.; this is not an official Apple product.
