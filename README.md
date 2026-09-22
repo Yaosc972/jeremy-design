@@ -51,9 +51,9 @@ git clone https://github.com/Yaosc972/jeremy-design.git ~/.codex/skills/jeremy-d
 
 ## 验证
 
-修改审计脚本后运行 `node tests/regression.mjs`（需要可用 Node 和 Chrome，具体运行环境见脚本）。几何检测通过不代表视觉或业务通过；skill 入口校验也不代表已做生成效果 A/B 测试。
+修改审计脚本后运行 `node tests/regression.mjs`（需要 Node 与 Chrome；Chrome 按 `--chrome` 参数 → `CHROME_PATH` 环境变量 → 平台常见安装路径自动探测，覆盖 macOS / Linux / Windows）。几何检测通过不代表视觉或业务通过；skill 入口校验也不代表已做生成效果 A/B 测试。
 
-补充回归：`python3 tests/matrix-contract.py` 检查矩阵退出码与参数；`node tests/visual-review-contract.mjs` 检查报告隔离、断言透传与评审保存（两者不启动浏览器）；`node tests/runner-errors.mjs` 检查浏览器运行器失败路径。
+补充回归：`python3 tests/matrix-contract.py` 检查矩阵退出码与参数（仅此测试需要 python3；`audit-matrix.sh` 本身只依赖 bash 与 node，可用 `--chrome` 透传浏览器路径）；`node tests/visual-review-contract.mjs` 检查报告隔离、断言透传与评审保存（两者不启动浏览器）；`node tests/runner-errors.mjs` 检查浏览器运行器失败路径。
 
 `scripts/ui-self-check.js` 可注入当前浏览器，记录组件可见性、关闭、局部边界和焦点检查，视觉结论另行看图填写；不是自动修复器或强制执行钩子。用浏览器打开 `tests/ui-self-check.html`，查看 `window.selfCheckTests` 验证其失败路径和结果记录；测试中的模拟视觉记录不代表真实视觉验收。
 

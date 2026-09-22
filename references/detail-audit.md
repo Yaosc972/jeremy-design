@@ -48,6 +48,7 @@ node scripts/audit-runner.mjs --target page.html --audit scripts/detail-audit.js
 
 运行器要点：
 
+- **Chrome 探测**：`--chrome` 参数 → `CHROME_PATH` 环境变量 → 平台常见安装路径（macOS / Linux / Windows）；`audit-matrix.sh` 用 `--chrome` 透传，结果解析只依赖 bash 与 node。
 - **支持 URL 与本地文件**：开发服务器页面、具体路由可直接检查；不复制 HTML、不改变相对资源解析。
 - **真两态模拟**：`reduced-transparency` 通过 CDP 媒体模拟分别设 `reduce` / `no-preference` 实测（`--rm both` 两态都跑），不靠字符串替换。
 - **等待可验证状态**：load 事件 → 注入状态脚本 → `document.fonts.ready` + 双 rAF + 等待全部动画 finished（封顶 3s），不用固定 sleep 赌过渡时长；稳定等待失败按执行失败处理。全流程受 `--deadline` 总时限约束（从进程启动起算，覆盖浏览器启动与连接），超时=失败。
@@ -130,11 +131,11 @@ node scripts/visual-review.mjs \
 | 症状 | 常见根因 | 修法（根因优先） |
 |---|---|---|
 | `clip` 文字被裁 | 固定高度/宽度装不下放大或重排后的文字 | 容器高度自适应；尺寸改相对单位；确需固定时给内容留伸缩空间 |
-| `w` 短标签拆行 | 容器过窄装不下完整短语 | ① 优先让容器重排（放宽/换行/调整网格）；② 只对真正需绑定的短语局部 `nowrap`（容器 `flex-wrap:wrap`，放不下就换行）；③ 超长单元拆成语义片段 |
-| `w` 段落孤字 | 行尾落单字 | `text-wrap:pretty` / `text-wrap:balance` |
-| `t` 行高偏紧 | 固定 px 行高不随字号缩放 | 行高改无单位值或相对单位，随字号自然缩放 |
-| `ov` 文本重叠 | 固定 px 容器装不下放大后的字 | 容器自适应，检查所有固定尺寸部件 |
-| `o` 水平溢出 | 元素最小宽度 > 容器 | 移除 `min-width`/放宽 grid 列数；长字符串用 `overflow-wrap:anywhere` 应急断行或就地滚动容器 |
+| `wrapped` 短标签拆行 | 容器过窄装不下完整短语 | ① 优先让容器重排（放宽/换行/调整网格）；② 只对真正需绑定的短语局部 `nowrap`（容器 `flex-wrap:wrap`，放不下就换行）；③ 超长单元拆成语义片段 |
+| `wrapped` 段落孤字 | 行尾落单字 | `text-wrap:pretty` / `text-wrap:balance` |
+| `tight` 行高偏紧 | 固定 px 行高不随字号缩放 | 行高改无单位值或相对单位，随字号自然缩放 |
+| `overlap` 文本重叠 | 固定 px 容器装不下放大后的字 | 容器自适应，检查所有固定尺寸部件 |
+| `overflowX` 水平溢出 | 元素最小宽度 > 容器 | 移除 `min-width`/放宽 grid 列数；长字符串用 `overflow-wrap:anywhere` 应急断行或就地滚动容器 |
 | 表格被长词撑横滚 | 单元格内专名不可拆 | 表格整体 `overflow-x` 滚动属**已知例外**；但内页不应因此产生页面级溢出 |
 
 **修法优先级**：布局根因（自适应高度/相对单位/允许重排）> 局部内容保护（nowrap/anywhere）> 状态隔离（媒体查询或类）> 改字号数值（最后手段，会破坏设计比例）。

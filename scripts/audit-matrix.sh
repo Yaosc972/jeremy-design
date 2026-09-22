@@ -13,6 +13,7 @@
 #   --timeout 30000            单档导航 load 上限 ms（超时=执行失败）
 #   --ready <js-expr>          应用就绪条件（透传运行器，所有档位共用）
 #   --assert <js-expr>         状态生效断言（透传运行器，每档执行，为假即失败）
+#   --chrome <path>            Chrome 可执行文件（透传运行器；缺省由运行器自动探测）
 #
 # 示例（真实应用 URL + 字号 × 主题矩阵）:
 #   ./audit-matrix.sh http://localhost:5173/workbench \
@@ -27,6 +28,8 @@
 #
 # 退出码: 0=全绿；1=检出阻断问题（clip/水平溢出）；2=执行失败（页面打不开/空白/页面报错/AUDIT 失败）
 # 注: warn 级（疑似重叠/行高偏紧/短行孤字）不判失败，需逐项人工复核后处置（见 references/detail-audit.md）。
+# 依赖: bash 与 node（结果解析用 node，无 python3 要求）。Chrome 由运行器自动探测或用 --chrome 指定。
+# 测试可用 JD_RUNNER_NODE 覆盖运行器调用命令（matrix-contract.py 的假运行器即借此注入）。
 set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNNER="$SCRIPT_DIR/audit-runner.mjs"
@@ -34,11 +37,11 @@ AUDIT="$SCRIPT_DIR/detail-audit.js"
 
 usage(){ awk 'NR>1 && /^#/{sub(/^# ?/,"");print;next} NR>1{exit}' "$0"; }
 
-TARGET=""; declare -a VIEWPORTS=() DIMS=()
+TARGET=""; CHROME=""; declare -a VIEWPORTS=() DIMS=()
 RM_LIST=("reduce" "no-preference"); TIMEOUT=30000; READY=""; ASSERT=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --viewport|--dim|--rm|--timeout|--ready|--assert)
+    --viewport|--dim|--rm|--timeout|--ready|--assert|--chrome)
       if [ $# -lt 2 ] || [ -z "$2" ] || [[ "$2" == --* ]]; then
         echo "缺少选项值: $1" >&2; exit 2
       fi;;
@@ -55,6 +58,7 @@ while [ $# -gt 0 ]; do
     --timeout)  TIMEOUT="$2"; shift 2;;
     --ready)    READY="$2"; shift 2;;
     --assert)   ASSERT="$2"; shift 2;;
+    --chrome)   CHROME="$2"; shift 2;;
     -h|--help)  usage; exit 0;;
     -*)         echo "未知选项: $1" >&2; usage; exit 2;;
     *)          TARGET="$1"; shift;;
@@ -92,6 +96,7 @@ for vp in "${VIEWPORTS[@]}"; do
       [ -n "$rm" ] && rargs+=("--rm" "$rm")
       [ -n "$READY" ] && rargs+=("--ready" "$READY")
       [ -n "$ASSERT" ] && rargs+=("--assert" "$ASSERT")
+      [ -n "$CHROME" ] && rargs+=("--chrome" "$CHROME")
       label=""
       if [ -n "$combo" ]; then
         IFS=',' read -ra fs <<< "$combo"
@@ -102,38 +107,40 @@ for vp in "${VIEWPORTS[@]}"; do
       fi
       rm_label="${rm:-默认}"
       echo "[$idx] $label | $vp | rm=$rm_label"
-      out="$(node "$RUNNER" "${rargs[@]}" 2>/dev/null)"
+      out="$("${JD_RUNNER_NODE:-node}" "$RUNNER" "${rargs[@]}" 2>/dev/null)"
       rcode=$?
       if [ $rcode -ne 0 ] || [ -z "$out" ]; then
-        failmsg="$(printf '%s' "$out" | python3 -c 'import json,sys
-try: print(json.load(sys.stdin).get("fail",""))
-except Exception: print("")' 2>/dev/null)"
+        failmsg="$(printf '%s' "$out" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{console.log(JSON.parse(s).fail||"")}catch(e){console.log("")}})' 2>/dev/null)"
         echo "    ✗ 执行失败（退出码 ${rcode}）${failmsg:+: $failmsg}"
         ([ -z "$failmsg" ] && [ -n "$out" ]) && printf '%s\n' "$out" | head -c 300
         total_fail=$((total_fail+1)); worst=2; continue
       fi
-      echo "$out" | python3 -c '
-import json,sys
-d=json.load(sys.stdin)
-if not d.get("ok"):   print("    ✗ 执行失败: "+str(d.get("fail","")));            sys.exit(2)
-if d.get("blank"):    print("    ✗ 页面空白");                                    sys.exit(2)
-if d.get("errors"):   print("    ✗ 页面错误: "+"; ".join(d["errors"])[:200]);      sys.exit(2)
-r=d["result"]; c=r["counts"]
-print("    blocked="+str(c["blocked"])+"  warn="+str(c["warn"]))
-if r["overflowX"]>0: print("    ✗ 水平溢出 "+str(r["overflowX"])+"px")
-for x in r["clip"][:6]:
-    note=("  — "+x["note"]) if x.get("note") else ""
-    print("    "+("✗" if x["sev"]=="blocked" else "⚠")+" 裁切 ["+x["t"]+"] ← "+x["cutter"]+" (可见比"+str(x["ratio"])+")"+note)
-for x in r["overlap"][:5]:
-    print("    ⚠ 重叠 "+x["a"]+" × "+x["b"]+("  (视口外，需滚动复核)" if x.get("offscreen") else ""))
-for x in r["wrapped"][:5]: print("    ⚠ 短行 "+x["t"]+" 每行字数"+str(x["perLine"]))
-for x in r["tight"][:5]:   print("    ⚠ 行高 "+x["t"]+" ("+str(x["lh"])+"/"+str(x["fs"])+")")
-sk=r.get("skipped") or []
-if sk:
-    print("    ⓘ 豁免 "+str(len(sk))+" 项（带证据，可审查）")
-    for x in sk[:4]: print("      - ["+x["reason"]+"] "+x["t"]+" ← "+str(x.get("evidence")))
-sys.exit(3 if c["blocked"] else 0)
-'
+      echo "$out" | node -e '
+let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{
+let d=null;
+try{ d=JSON.parse(s); }catch(e){ console.log("    ✗ 执行失败: 输出不是有效 JSON"); process.exit(2); }
+if(!d||d.ok!==true){ console.log("    ✗ 执行失败: "+String(d&&d.fail||"")); process.exit(2); }
+if(d.blank){ console.log("    ✗ 页面空白"); process.exit(2); }
+if(d.errors&&d.errors.length){ console.log("    ✗ 页面错误: "+d.errors.join("; ").slice(0,200)); process.exit(2); }
+const r=d.result;
+if(!r||!r.counts){ console.log("    ✗ 执行失败: 缺少 result"); process.exit(2); }
+const c=r.counts;
+console.log("    blocked="+c.blocked+"  warn="+c.warn);
+if(r.overflowX>0){ console.log("    ✗ 水平溢出 "+r.overflowX+"px"); }
+(r.clip||[]).slice(0,6).forEach(x=>{
+  const note=x.note?("  — "+x.note):"";
+  console.log("    "+(x.sev==="blocked"?"✗":"⚠")+" 裁切 ["+x.t+"] ← "+x.cutter+" (可见比"+x.ratio+")"+note);
+});
+(r.overlap||[]).slice(0,5).forEach(x=>{ console.log("    ⚠ 重叠 "+x.a+" × "+x.b+(x.offscreen?"  (视口外，需滚动复核)":"")); });
+(r.wrapped||[]).slice(0,5).forEach(x=>{ console.log("    ⚠ 短行 "+x.t+" 每行字数"+JSON.stringify(x.perLine)); });
+(r.tight||[]).slice(0,5).forEach(x=>{ console.log("    ⚠ 行高 "+x.t+" ("+x.lh+"/"+x.fs+")"); });
+const sk=r.skipped||[];
+if(sk.length){
+  console.log("    ⓘ 豁免 "+sk.length+" 项（带证据，可审查）");
+  sk.slice(0,4).forEach(x=>{ console.log("      - ["+x.reason+"] "+x.t+" ← "+String(x.evidence)); });
+}
+process.exit(c.blocked?3:0);
+});'
       pcode=$?
       case $pcode in
         0) ;;

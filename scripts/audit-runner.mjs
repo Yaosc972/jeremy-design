@@ -7,8 +7,12 @@
 // 用法（一般由 audit-matrix.sh 调用）：
 //   node audit-runner.mjs --target <url|file> --audit <detail-audit.js> \
 //     [--viewport 1440x900] [--rm reduce|no-preference] [--state <state.js>]... \
-//     [--ready <js-expr>] [--assert <js-expr>] \
+//     [--ready <js-expr>] [--assert <js-expr>] [--chrome <path>] \
 //     [--timeout 30000] [--deadline 120000] [--shot <out.png>] [--shot-at <y>] [--shot-full]
+//
+// Chrome 探测顺序：--chrome <path> → 环境变量 CHROME_PATH → 平台常见安装路径
+// （macOS /Applications，Linux which google-chrome/chromium…，Windows Program Files）。
+// 显式指定的路径不校验、不回退：缺失即执行失败，不静默换用其他浏览器。
 //
 // 前置条件链（任一不满足即执行失败，绝不继续得出"通过"）：
 //   导航无 errorText → load 在 --timeout 内触发 → 实际页面非浏览器错误页 →
@@ -28,8 +32,8 @@
 //     target, viewport, rm, stage?, fail? }
 //   ok=false 附 fail=失败阶段与原因；result 为 null 时检查不成立。
 //   浏览器错误页（chrome-error:// 或 neterror 结构）带文字也会被身份检查拦下。
-import { spawn } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -48,13 +52,41 @@ const readyExpr = opt('ready', null);       // 导航后的应用就绪条件（
 const assertExpr = opt('assert', null);     // 状态生效断言（可选）
 const states = optAll('state').map(f => readFileSync(f, 'utf8'));
 const timeoutMs = Number(opt('timeout', 30000));
-const chromePath = opt('chrome', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
 const auditSrc = readFileSync(auditPath, 'utf8');
 
 let stage = 'init';                         // 失败时报告的阶段
 
 const url = /^https?:\/\//.test(target) ? target : pathToFileURL(resolve(target)).href;
 const profileDir = mkdtempSync(tmpdir() + '/jd-cdp-');
+
+// Chrome 探测：--chrome 参数 → CHROME_PATH 环境变量 → 平台常见安装路径。
+const resolveChrome = () => {
+  const explicit = opt('chrome', null) || process.env.CHROME_PATH;
+  if (explicit) return explicit;
+  const candidates = process.platform === 'darwin'
+    ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+       '/Applications/Chromium.app/Contents/MacOS/Chromium']
+    : process.platform === 'win32'
+      ? [process.env.PROGRAMFILES, process.env['PROGRAMFILES(X86)'], process.env.LOCALAPPDATA]
+          .filter(Boolean)
+          .map(base => base + '\\Google\\Chrome\\Application\\chrome.exe')
+      : [];
+  for (const p of candidates) { try { if (existsSync(p)) return p; } catch {} }
+  if (process.platform !== 'win32') {
+    for (const name of ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'chrome']) {
+      try {
+        const w = spawnSync('which', [name], { encoding: 'utf8' });
+        if (w.status === 0 && w.stdout.trim()) return w.stdout.trim().split('\n')[0];
+      } catch {}
+    }
+  }
+  return null;
+};
+const chromePath = resolveChrome();
+if (!chromePath) {
+  console.log(JSON.stringify({ ok: false, blank: null, errors: [], result: null, target: url, viewport: opt('viewport', '1440x900'), rm, stage, fail: '运行器错误（阶段: init）: 未找到 Chrome 可执行文件 —— 用 --chrome <path> 或 CHROME_PATH 环境变量指定；已探测平台常见安装路径' }));
+  process.exit(2);
+}
 
 const chrome = spawn(chromePath, [
   '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',

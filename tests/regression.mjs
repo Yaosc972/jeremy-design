@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // 检测器 + 运行器自动回归：对 fixtures/detector-cases.html 跑 audit-runner，按用例期望断言产出；
+// 对 fixtures/rm-probe.html 验证 reduced-transparency 的 CDP 真实模拟（非字符串替换）；
 // 并验证运行器失败路径（异步断言为假/抛异常/超时）「必须 exit 2，绝不误判通过」。
 // 修改 detail-audit.js / audit-runner.mjs 后运行本脚本——误报/漏报/误通过回归在这里失败，
 // 而不是等人工复核或线上漏检发现。
@@ -89,7 +90,28 @@ writeFileSync(freezeFile, 'window.requestAnimationFrame=()=>0;');
 failCase('rAF 被冻结时稳定等待靠兜底完成（不永久挂起）→ exit 0', ['--state', freezeFile], 0);
 rmSync(freezeFile, { force: true });
 
-// ── 三、工具面（视觉验收链路：--shot-full 与对照片生成）────────────
+// ── 三、CDP 媒体模拟探针（rm-probe.html）──────────────────────────
+// probe 页面仅在 prefers-reduced-transparency:reduce 生效时制造水平溢出：
+// reduce 档报出、no-preference 档干净，即证明 CDP 媒体模拟真实生效（非字符串替换）。
+console.log('\n  ── CDP 媒体模拟探针（rm-probe.html）──');
+{
+  const probeRun = rm => spawnSync(process.execPath, [
+    join(root, 'scripts/audit-runner.mjs'),
+    '--target', join(here, 'fixtures/rm-probe.html'),
+    '--audit', join(root, 'scripts/detail-audit.js'),
+    '--viewport', '1440x900', '--rm', rm,
+  ], { encoding: 'utf8' });
+  const red = probeRun('reduce');
+  let dr = null; try { dr = JSON.parse(red.stdout); } catch {}
+  check('rm=reduce 媒体模拟生效（probe 溢出被检出）',
+    red.status === 0 && dr?.result?.overflowX > 0 && dr?.result?.counts?.blocked >= 1);
+  const nop = probeRun('no-preference');
+  let dn = null; try { dn = JSON.parse(nop.stdout); } catch {}
+  check('rm=no-preference 不误报（exit 0 且无溢出）',
+    nop.status === 0 && dn?.ok === true && dn?.result?.overflowX === 0);
+}
+
+// ── 四、工具面（视觉验收链路：--shot-full 与对照片生成）────────────
 console.log('\n  ── 工具面（视觉验收链路）──');
 {
   const png = join(tmpdir(), `jd-full-${process.pid}.png`);
@@ -117,5 +139,5 @@ console.log('\n  ── 工具面（视觉验收链路）──');
   rmSync(reviewDir, { force: true, recursive: true });
 }
 
-console.log(`\n${bad ? `回归失败：共 ${bad} 项不符期望` : `回归通过：检测器 ${cases.length} 项 + 运行器失败路径 7 项 + 工具面 2 项全部符合期望`}`);
+console.log(`\n${bad ? `回归失败：共 ${bad} 项不符期望` : `回归通过：检测器 ${cases.length} 项 + 运行器失败路径 7 项 + 媒体模拟 2 项 + 工具面 2 项全部符合期望`}`);
 process.exit(bad ? 1 : 0);
